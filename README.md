@@ -1,25 +1,30 @@
 # Agent-Ops 🤖🚑
 
-> **Self-healing log-triage service built with multi-agent LLM orchestration.**  
-> Detects anomalies in application logs, summarizes root-cause, and auto-opens Jira tickets.
+> Self-healing log-triage microservice built with multi-agent LLM orchestration.
 
-## ✨ Features
-- **AutoGen–powered agent swarm**: Planner, Retriever, Diagnoser, Jira-Bot
-- **Java Spring Boot** REST wrapper → scalable deployment on Kubernetes
-- **Python micro-agents** run via FastAPI + LangChain
-- Retrieval-Augmented Generation (RAG) over ElasticSearch logs
-- CI/CD: GitHub Actions → Docker → GHCR → ArgoCD
-- Unit & integration tests (JUnit 5 + PyTest)
+## 🚀 Features
+- **Planner Agent** outlines tasks by analyzing new log entries.
+- **Retriever Agent** pulls relevant docs & runbooks (RAG via ElasticSearch).
+- **Diagnoser Agent** pinpoints root cause and generates summary.
+- **Jira-Bot Agent** auto-files incident tickets through the Jira REST API.
 
-## 🚀 Quick start
+## 🛠️ Tech Stack
+- **Orchestration:** Python + LangChain / Microsoft AutoGen  
+- **Core Service:** Java 21 & Spring Boot 3  
+- **Data Store:** ElasticSearch, FAISS for embeddings  
+- **CI/CD:** GitHub Actions → Docker → GitHub Container Registry  
+- **Deployment:** Kubernetes (Helm chart) + ArgoCD
+
+## 🎯 Quick Start
 
 ```bash
-# 1. clone
+# 1. Clone
 git clone https://github.com/Br111t/agent-ops.git && cd agent-ops
 
-# 2. spin up containers
-make dev-up          # or: docker compose up -d
+# 2. Run locally
+make dev-up    # spins up ES + service via Docker Compose
 
-# 3. run sample workflow
+# 3. Diagnose sample
 curl -X POST http://localhost:8080/api/diagnose \
-     -d '{"logFile": "samples/payment_error.log"}'
+  -H "Content-Type: application/json" \
+  -d '{"logFile": "samples/payment_error.log"}'
