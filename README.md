@@ -17,14 +17,18 @@
 
 ## 🎯 Quick Start
 
-```bash
+
 # 1. Clone
+```bash
 git clone https://github.com/Br111t/agent-ops.git && cd agent-ops
-
+```
 # 2. Run locally
+```bash
 make dev-up    # spins up ES + service via Docker Compose
-
+```
 # 3. Diagnose sample
+```bash
 curl -X POST http://localhost:8080/api/diagnose \
   -H "Content-Type: application/json" \
   -d '{"logFile": "samples/payment_error.log"}'
+```
