@@ -1,73 +1,64 @@
-################################
-# IDEs / Editors
-################################
-.vscode/*
-!.vscode/extensions.json
-!.vscode/settings.json
-*.iml
-
-################################
-# Node / Angular
-################################
-node_modules/
-dist/
-.angular/
-.cache/
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-
-################################
-# Environment files
-################################
+# Environment and secrets 
 .env
 .env.*
 !.env.example
 
-################################
 # Python
-################################
 __pycache__/
 *.py[cod]
-*.pyo
-*.pyd
-.venv/
+*$py.class
+*.so
+.python-version
+
+# Virtual environments
 venv/
-.env/
-pip-wheel-metadata/
+.venv/
+env/
+ENV/
+
+# Packaging
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# Test and coverage
 .pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+junit.xml
+test-results/
+allure-report/
+allure-results/
+
+# Type checking and linting
 .mypy_cache/
+.ruff_cache/
+.pyright/
+.dmypy.json
 
-################################
-# Java / Spring (future-proof)
-################################
-target/
-*.class
-*.jar
-*.war
-*.ear
-hs_err_pid*
+# Jupyter
+.ipynb_checkpoints/
 
-################################
-# Build / Coverage
-################################
-coverage/
-*.lcov
+# IDEs
+.vscode/
+.idea/
 
-################################
-# Docker
-################################
-docker-compose.override.yml
+# Operating systems
+.DS_Store
+Thumbs.db
 
-################################
-# Logs / Temp
-################################
-logs/
+# Logs and generated reports 
 *.log
+reports/
+artifacts/
+traces/
+
+# Temporary files
+*.tmp
 tmp/
 temp/
+*.tmp
 
-################################
-# Test artifacts
-################################
-test-results/
