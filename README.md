@@ -1,68 +1,54 @@
-# Agent-Ops 🤖🚑
+# Agent-Ops 🤖🔎
 
-> Self-healing log triage with an Angular ops console backed by agent-driven diagnostics.
+> A repository-aware AI evaluation and reliability system for diagnosing test failures, analyzing execution artifacts, and proposing evidence-supported improvements.
 
-## What’s in this repo
+[![Project Status](https://img.shields.io/badge/status-active%20development-blue)](#project-status)
+[![Python](https://img.shields.io/badge/python-3.12%2B-blue)](https://www.python.org/)
+[![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
-- `frontend/agent-ops-console` — Angular UI (incident inbox, triage runs, audit trail)
-- `backend/` — API service powering the console (mock-first, extensible to full agent orchestration)
-- `infra/` — Docker Compose and deployment resources
+## Overview
 
-## 🚀 Features
+Agent-Ops is a repository-aware engineering agent designed to inspect a codebase, execute approved tests, analyze failures, and produce traceable recommendations.
 
-### Console (Angular)
-- Incident inbox with filters (service / environment / severity)
-- Incident detail view with raw logs and triage run trace
-- Run triage and inspect agent steps + recommendations
-- Audit trail of diagnostic actions
+The project explores how coding agents can be made more reliable through structured evaluation, constrained tool use, evidence tracking, sandboxed execution, and human approval.
 
-### Agent Orchestration
-- **Planner Agent** — outlines triage steps based on log context
-- **Retriever Agent** — pulls relevant docs & runbooks (RAG via ElasticSearch)
-- **Diagnoser Agent** — synthesizes root cause and remediation summary
-- **Jira Bot Agent** — optionally files incident tickets via Jira REST API
+Rather than applying changes autonomously, Agent-Ops begins with a read-only diagnostic workflow. Proposed corrections remain reviewable, measurable, and reversible.
 
-## 🛠️ Tech Stack
+## Project Status
 
-**Frontend**
-- Angular
-- TypeScript
-- RxJS
+**Status:** Active development  
+**Current phase:** Repository inspection and failure-analysis foundation
 
-**Backend**
-- Python (FastAPI) and/or Java 21 (Spring Boot)
-- LangChain / Microsoft AutoGen
+The initial release focuses on:
 
-**Data**
-- ElasticSearch
-- FAISS (embeddings)
+- Repository discovery
+- Approved test execution
+- Structured test-result parsing
+- Evidence-supported failure classification
+- Diagnostic report generation
+- Complete tool-call tracing
 
-**Infra**
-- Docker, GitHub Actions
-- Kubernetes (Helm) + ArgoCD (planned)
+Patch generation, sandbox verification, multimodal analysis, and the web console are planned for later phases.
 
-> Note: Some components are stubbed or mocked initially to support frontend development and Angular learning.
+## Core Workflow
 
-## 🎯 Quick Start
-
-### 1. Clone
-```bash
-git clone https://github.com/Br111t/agent-ops.git
-cd agent-ops
-```
-### 2. Backend (API)
-```bash
-cd backend
-pip install -r requirements.txt
-uvicorn app.main:app --reload
-```
-
-### 3. Frontend (Angular)
-```bash
-cd ../frontend/agent-ops-console
-npm install
-npm start
-```
-
-The Angular console will be available at `http://localhost:4200`
-
+```text
+Inspect repository
+        ↓
+Load relevant engineering skills
+        ↓
+Select and run approved tests
+        ↓
+Collect code, logs, screenshots, and traces
+        ↓
+Classify the failure
+        ↓
+Produce evidence-supported recommendations
+        ↓
+Propose candidate corrections
+        ↓
+Request human approval
+        ↓
+Test approved changes in a sandbox
+        ↓
+Measure and report the outcome
