@@ -4,6 +4,7 @@ import argparse
 import json
 from collections.abc import Sequence
 
+from agent_ops.analysis import parse_pytest_result
 from agent_ops.repository import detect_test_framework, scan_repository
 from agent_ops.tools import execute_approved_tests
 
@@ -45,9 +46,12 @@ def main(argv: Sequence[str] | None = None) -> None:
             args.repository_path,
             framework_profile,
         )
+        test_summary = parse_pytest_result(execution_result)
+
         result["test_execution"] = {
             **execution_result.model_dump(mode="json"),
             "succeeded": execution_result.succeeded,
+            "summary": test_summary.model_dump(mode="json"),
         }
 
     print(json.dumps(result, indent=2))

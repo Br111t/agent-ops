@@ -90,7 +90,7 @@ def test_cli_runs_tests_when_explicitly_requested(
     execution_result = ExecutionResult(
         command=("python", "-m", "pytest", "-q"),
         exit_code=0,
-        stdout="11 passed",
+        stdout="11 passed in 0.42s\n",
         stderr="",
         duration_seconds=0.5,
         timed_out=False,
@@ -115,4 +115,7 @@ def test_cli_runs_tests_when_explicitly_requested(
 
     assert output["test_execution"]["exit_code"] == 0
     assert output["test_execution"]["succeeded"] is True
-    assert output["test_execution"]["stdout"] == "11 passed"
+    assert output["test_execution"]["stdout"] == "11 passed in 0.42s\n"
+    assert output["test_execution"]["summary"]["passed"] == 11
+    assert output["test_execution"]["summary"]["failed"] == 0
+    assert output["test_execution"]["summary"]["total_tests"] == 11

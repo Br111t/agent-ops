@@ -6,10 +6,12 @@ from agent_ops.models.test_framework import (
     TestFramework,
     TestFrameworkProfile,
 )
+from agent_ops.models.test_summary import TestResultSummary
 
 __all__ = [
     "RepositoryProfile",
     "TestFramework",
     "TestFrameworkProfile",
     "TestExecutionResult",
+    "TestResultSummary",
 ]
