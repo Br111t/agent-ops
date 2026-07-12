@@ -2,10 +2,11 @@
 
 import json
 from pathlib import Path
+from unittest.mock import Mock
 
 import pytest
 
-from agent_ops.__main__ import main
+from agent_ops.cli import main
 from agent_ops.models import (
     RepositoryProfile,
 )
@@ -17,6 +18,9 @@ from agent_ops.models import (
 )
 from agent_ops.models import (
     TestFrameworkProfile as FrameworkProfile,
+)
+from agent_ops.models import (
+    TestResultSummary as ResultSummary,
 )
 
 
@@ -53,29 +57,36 @@ def test_cli_does_not_run_tests_by_default(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     """Repository inspection should remain read-only by default."""
-    monkeypatch.setattr(
-        "agent_ops.__main__.scan_repository",
-        lambda path: repository_profile,
-    )
-    monkeypatch.setattr(
-        "agent_ops.__main__.detect_test_framework",
-        lambda path: framework_profile,
-    )
-
-    def unexpected_execution(*args: object, **kwargs: object) -> None:
-        raise AssertionError("Tests must not run without --run-tests")
+    graph = Mock()
+    graph.invoke.return_value = {
+        "repository_path": str(tmp_path),
+        "run_tests": False,
+        "repository_profile": repository_profile,
+        "framework_profile": framework_profile,
+    }
 
     monkeypatch.setattr(
-        "agent_ops.__main__.execute_approved_tests",
-        unexpected_execution,
+        "agent_ops.cli.build_diagnostic_graph",
+        lambda: graph,
     )
 
     main([str(tmp_path)])
 
     output = json.loads(capsys.readouterr().out)
 
-    assert "repository" in output
-    assert "test_framework" in output
+    graph.invoke.assert_called_once_with(
+        {
+            "repository_path": str(tmp_path),
+            "run_tests": False,
+        }
+    )
+
+    assert output["repository"] == repository_profile.model_dump(
+        mode="json"
+    )
+    assert output["test_framework"] == framework_profile.model_dump(
+        mode="json"
+    )
     assert "test_execution" not in output
 
 
@@ -95,27 +106,44 @@ def test_cli_runs_tests_when_explicitly_requested(
         duration_seconds=0.5,
         timed_out=False,
     )
+    test_summary = ResultSummary(
+        summary_found=True,
+        summary_line="11 passed in 0.42s",
+        passed=11,
+    )
+
+    graph = Mock()
+    graph.invoke.return_value = {
+        "repository_path": str(tmp_path),
+        "run_tests": True,
+        "repository_profile": repository_profile,
+        "framework_profile": framework_profile,
+        "execution_result": execution_result,
+        "test_summary": test_summary,
+    }
 
     monkeypatch.setattr(
-        "agent_ops.__main__.scan_repository",
-        lambda path: repository_profile,
-    )
-    monkeypatch.setattr(
-        "agent_ops.__main__.detect_test_framework",
-        lambda path: framework_profile,
-    )
-    monkeypatch.setattr(
-        "agent_ops.__main__.execute_approved_tests",
-        lambda path, profile: execution_result,
+        "agent_ops.cli.build_diagnostic_graph",
+        lambda: graph,
     )
 
     main([str(tmp_path), "--run-tests"])
 
     output = json.loads(capsys.readouterr().out)
 
+    graph.invoke.assert_called_once_with(
+        {
+            "repository_path": str(tmp_path),
+            "run_tests": True,
+        }
+    )
+
+    assert output["repository"] == repository_profile.model_dump(
+        mode="json"
+    )
+    assert output["test_framework"] == framework_profile.model_dump(
+        mode="json"
+    )
     assert output["test_execution"]["exit_code"] == 0
     assert output["test_execution"]["succeeded"] is True
-    assert output["test_execution"]["stdout"] == "11 passed in 0.42s\n"
     assert output["test_execution"]["summary"]["passed"] == 11
-    assert output["test_execution"]["summary"]["failed"] == 0
-    assert output["test_execution"]["summary"]["total_tests"] == 11
