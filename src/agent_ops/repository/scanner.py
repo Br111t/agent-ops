@@ -57,17 +57,11 @@ def scan_repository(repository_path: str | Path) -> RepositoryProfile:
         raise NotADirectoryError(f"Repository path is not a directory: {root_path}")
 
     files = [
-        path
-        for path in root_path.rglob("*")
-        if path.is_file() and not _is_ignored(path, root_path)
+        path for path in root_path.rglob("*") if path.is_file() and not _is_ignored(path, root_path)
     ]
 
     detected_languages = sorted(
-        {
-            language
-            for path in files
-            if (language := LANGUAGE_BY_SUFFIX.get(path.suffix.lower()))
-        }
+        {language for path in files if (language := LANGUAGE_BY_SUFFIX.get(path.suffix.lower()))}
     )
 
     configuration_files = sorted(
@@ -77,9 +71,7 @@ def scan_repository(repository_path: str | Path) -> RepositoryProfile:
     )
 
     test_files = sorted(
-        path.relative_to(root_path).as_posix()
-        for path in files
-        if _is_test_file(path, root_path)
+        path.relative_to(root_path).as_posix() for path in files if _is_test_file(path, root_path)
     )
 
     return RepositoryProfile(
@@ -98,35 +90,24 @@ def _is_ignored(path: Path, root_path: Path) -> bool:
     relative_path = path.relative_to(root_path)
 
     return any(
-        part in IGNORED_DIRECTORIES or part.endswith(".egg-info")
-        for part in relative_path.parts
+        part in IGNORED_DIRECTORIES or part.endswith(".egg-info") for part in relative_path.parts
     )
 
 
 def _is_test_file(path: Path, root_path: Path) -> bool:
     """Return whether a file appears to be an executable test module."""
     relative_path = path.relative_to(root_path)
-    directory_names = {
-        part.lower()
-        for part in relative_path.parts[:-1]
-    }
+    directory_names = {part.lower() for part in relative_path.parts[:-1]}
     filename = path.name.lower()
 
     if directory_names & NON_TEST_DIRECTORY_NAMES:
         return False
 
     if directory_names & TEST_DIRECTORY_NAMES:
-        return (
-            filename.startswith("test_")
-            or filename.endswith("_test.py")
-        )
+        return filename.startswith("test_") or filename.endswith("_test.py")
 
     # Allow conventional root-level Python tests while avoiding
     # application modules such as src/.../test_runner.py.
-    return (
-        path.parent == root_path
-        and (
-            filename.startswith("test_")
-            or filename.endswith("_test.py")
-        )
+    return path.parent == root_path and (
+        filename.startswith("test_") or filename.endswith("_test.py")
     )

@@ -4,7 +4,7 @@ import argparse
 import json
 from collections.abc import Sequence
 
-from agent_ops.repository import scan_repository
+from agent_ops.repository import detect_test_framework, scan_repository
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -25,14 +25,16 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: Sequence[str] | None = None) -> None:
     """Run the Agent-Ops repository inspection command."""
     args = build_parser().parse_args(argv)
-    profile = scan_repository(args.repository_path)
 
-    print(
-        json.dumps(
-            profile.model_dump(mode="json"),
-            indent=2,
-        )
-    )
+    repository_profile = scan_repository(args.repository_path)
+    test_framework_profile = detect_test_framework(args.repository_path)
+
+    result = {
+        "repository": repository_profile.model_dump(mode="json"),
+        "test_framework": test_framework_profile.model_dump(mode="json"),
+    }
+
+    print(json.dumps(result, indent=2))
 
 
 if __name__ == "__main__":
