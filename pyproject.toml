@@ -15,6 +15,7 @@ authors = [
 ]
 
 dependencies = [
+    "langgraph>=1.2,<2.0",
     "pydantic>=2.0",
 ]
 
