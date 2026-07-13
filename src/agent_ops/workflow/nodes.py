@@ -1,7 +1,11 @@
 """Workflow nodes for the Agent-Ops diagnostic graph."""
 
-from agent_ops.analysis import parse_pytest_result
+from agent_ops.analysis import (
+    normalize_execution_evidence,
+    parse_pytest_result,
+)
 from agent_ops.models import (
+    NormalizedExecutionEvidence,
     RepositoryProfile,
     TestExecutionResult,
     TestFrameworkProfile,
@@ -64,4 +68,19 @@ def parse_results_node(
 
     return {
         "test_summary": test_summary,
+    }
+
+
+def normalize_evidence_node(
+    state: AgentOpsState,
+) -> dict[str, NormalizedExecutionEvidence]:
+    """Normalize execution metadata and parsed test evidence."""
+
+    normalized_evidence = normalize_execution_evidence(
+        state["execution_result"],
+        state["test_summary"],
+    )
+
+    return {
+        "normalized_evidence": normalized_evidence,
     }

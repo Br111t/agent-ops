@@ -4,6 +4,9 @@ from pathlib import Path
 from unittest.mock import patch
 
 from agent_ops.models import (
+    NormalizedExecutionEvidence as ExecutionEvidence,
+)
+from agent_ops.models import (
     RepositoryProfile,
 )
 from agent_ops.models import (
@@ -65,6 +68,7 @@ def test_graph_stops_before_execution_when_tests_not_requested() -> None:
     assert result["framework_profile"] == framework_profile
     assert "execution_result" not in result
     assert "test_summary" not in result
+    assert "normalized_evidence" not in result
     execute_tests.assert_not_called()
 
 
@@ -98,6 +102,15 @@ def test_graph_executes_and_parses_when_tests_requested() -> None:
         summary_line="2 passed in 0.10s",
         passed=2,
     )
+    normalized_evidence = ExecutionEvidence(
+        command=("python", "-m", "pytest", "-q"),
+        exit_code=0,
+        timed_out=False,
+        duration_seconds=0.1,
+        summary_found=True,
+        summary_line="2 passed in 0.10s",
+        passed=2,
+    )
 
     with (
         patch(
@@ -116,6 +129,10 @@ def test_graph_executes_and_parses_when_tests_requested() -> None:
             "agent_ops.workflow.nodes.parse_pytest_result",
             return_value=test_summary,
         ),
+        patch(
+            "agent_ops.workflow.nodes.normalize_execution_evidence",
+            return_value=normalized_evidence,
+        ),
     ):
         graph = build_diagnostic_graph()
 
@@ -130,3 +147,4 @@ def test_graph_executes_and_parses_when_tests_requested() -> None:
     assert result["framework_profile"] == framework_profile
     assert result["execution_result"] == execution_result
     assert result["test_summary"] == test_summary
+    assert result["normalized_evidence"] == normalized_evidence

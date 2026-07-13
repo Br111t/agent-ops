@@ -4,6 +4,9 @@ from pathlib import Path
 from unittest.mock import patch
 
 from agent_ops.models import (
+    NormalizedExecutionEvidence as ExecutionEvidence,
+)
+from agent_ops.models import (
     RepositoryProfile,
 )
 from agent_ops.models import (
@@ -22,6 +25,7 @@ from agent_ops.workflow.nodes import (
     detect_framework_node,
     execute_tests_node,
     inspect_repository_node,
+    normalize_evidence_node,
     parse_results_node,
 )
 
@@ -146,3 +150,51 @@ def test_parse_results_node_returns_summary() -> None:
 
     assert result == {"test_summary": expected}
     parse_pytest_result.assert_called_once_with(execution_result)
+
+
+def test_normalize_evidence_node_combines_execution_evidence() -> None:
+    """The normalization node should return consistent execution evidence."""
+
+    execution_result = ExecutionResult(
+        command=("python", "-m", "pytest", "-q"),
+        exit_code=1,
+        stdout="1 failed in 0.20s\n",
+        stderr="",
+        duration_seconds=0.3,
+        timed_out=False,
+    )
+    test_summary = ResultSummary(
+        summary_found=True,
+        summary_line="1 failed in 0.20s",
+        failed=1,
+    )
+    normalized_evidence = ExecutionEvidence(
+        command=("python", "-m", "pytest", "-q"),
+        exit_code=1,
+        timed_out=False,
+        duration_seconds=0.3,
+        summary_found=True,
+        summary_line="1 failed in 0.20s",
+        failed=1,
+    )
+
+    with patch(
+        "agent_ops.workflow.nodes.normalize_execution_evidence",
+        return_value=normalized_evidence,
+    ) as normalize:
+        result = normalize_evidence_node(
+            {
+                "repository_path": ".",
+                "run_tests": True,
+                "execution_result": execution_result,
+                "test_summary": test_summary,
+            }
+        )
+
+    assert result == {
+        "normalized_evidence": normalized_evidence,
+    }
+    normalize.assert_called_once_with(
+        execution_result,
+        test_summary,
+    )

@@ -7,6 +7,7 @@ from agent_ops.workflow.nodes import (
     detect_framework_node,
     execute_tests_node,
     inspect_repository_node,
+    normalize_evidence_node,
     parse_results_node,
 )
 from agent_ops.workflow.state import AgentOpsState
@@ -39,6 +40,10 @@ def build_diagnostic_graph() -> CompiledStateGraph:
         "parse_results",
         parse_results_node,
     )
+    builder.add_node(
+        "normalize_evidence",
+        normalize_evidence_node,
+    )
 
     builder.add_edge(
         START,
@@ -64,6 +69,10 @@ def build_diagnostic_graph() -> CompiledStateGraph:
     )
     builder.add_edge(
         "parse_results",
+        "normalize_evidence",
+    )
+    builder.add_edge(
+        "normalize_evidence",
         END,
     )
 
