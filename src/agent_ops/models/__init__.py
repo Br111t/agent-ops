@@ -1,6 +1,7 @@
 """Public Agent-Ops data models."""
 
 from agent_ops.models.execution_evidence import (
+    ExtractedExecutionDetails,
     NormalizedExecutionEvidence,
 )
 from agent_ops.models.repository import RepositoryProfile
@@ -12,10 +13,11 @@ from agent_ops.models.test_framework import (
 from agent_ops.models.test_summary import TestResultSummary
 
 __all__ = [
+    "ExtractedExecutionDetails",
+    "NormalizedExecutionEvidence",
     "RepositoryProfile",
     "TestFramework",
     "TestFrameworkProfile",
     "TestExecutionResult",
     "TestResultSummary",
-    "NormalizedExecutionEvidence",
 ]

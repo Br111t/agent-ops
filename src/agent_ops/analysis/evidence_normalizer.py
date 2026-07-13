@@ -1,5 +1,8 @@
 """Normalization of captured test-execution evidence."""
 
+from agent_ops.analysis.local_evidence_extractor import (
+    extract_local_evidence,
+)
 from agent_ops.models import (
     NormalizedExecutionEvidence,
     TestExecutionResult,
@@ -12,6 +15,7 @@ def normalize_execution_evidence(
     test_summary: TestResultSummary,
 ) -> NormalizedExecutionEvidence:
     """Combine raw execution metadata and parsed test results."""
+    details = extract_local_evidence(execution_result)
 
     return NormalizedExecutionEvidence(
         command=execution_result.command,
@@ -30,4 +34,8 @@ def normalize_execution_evidence(
         warning_count=test_summary.warnings,
         failed_tests=test_summary.failed_tests,
         error_tests=test_summary.error_tests,
+        exception_types=details.exception_types,
+        assertion_messages=details.assertion_messages,
+        traceback_files=details.traceback_files,
+        warning_messages=details.warning_messages,
     )

@@ -80,3 +80,38 @@ def test_normalize_execution_evidence_preserves_timeout_state() -> None:
     assert result.passed == 0
     assert result.failed == 0
     assert result.errors == 0
+
+
+def test_normalize_execution_evidence_includes_local_details() -> None:
+    """Normalization should include locally extracted diagnostics."""
+
+    execution_result = ExecutionResult(
+        command=("python", "-m", "pytest", "-q"),
+        exit_code=1,
+        stdout=(
+            "src/calculator.py:12: in add\n"
+            "E   AssertionError: incorrect total\n"
+            "1 failed in 0.20s\n"
+        ),
+        stderr="",
+        duration_seconds=0.3,
+        timed_out=False,
+    )
+    test_summary = ResultSummary(
+        summary_found=True,
+        summary_line="1 failed in 0.20s",
+        failed=1,
+    )
+
+    result = normalize_execution_evidence(
+        execution_result,
+        test_summary,
+    )
+
+    assert result.exception_types == ("AssertionError",)
+    assert result.assertion_messages == (
+        "incorrect total",
+    )
+    assert result.traceback_files == (
+        "src/calculator.py",
+    )

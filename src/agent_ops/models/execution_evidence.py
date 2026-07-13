@@ -35,3 +35,17 @@ class NormalizedExecutionEvidence(BaseModel):
     assertion_messages: tuple[str, ...] = ()
     traceback_files: tuple[str, ...] = ()
     warning_messages: tuple[str, ...] = ()
+
+
+class ExtractedExecutionDetails(BaseModel):
+    """Detailed evidence conservatively extracted from test output."""
+
+    model_config = ConfigDict(
+        extra="forbid",
+        frozen=True,
+    )
+
+    exception_types: tuple[str, ...] = ()
+    assertion_messages: tuple[str, ...] = ()
+    traceback_files: tuple[str, ...] = ()
+    warning_messages: tuple[str, ...] = ()
