@@ -4,6 +4,10 @@ from agent_ops.models.execution_evidence import (
     ExtractedExecutionDetails,
     NormalizedExecutionEvidence,
 )
+from agent_ops.models.failure_classification import (
+    FailureCategory,
+    FailureClassification,
+)
 from agent_ops.models.repository import RepositoryProfile
 from agent_ops.models.test_execution import TestExecutionResult
 from agent_ops.models.test_framework import (
@@ -14,10 +18,12 @@ from agent_ops.models.test_summary import TestResultSummary
 
 __all__ = [
     "ExtractedExecutionDetails",
+    "FailureCategory",
+    "FailureClassification",
     "NormalizedExecutionEvidence",
     "RepositoryProfile",
+    "TestExecutionResult",
     "TestFramework",
     "TestFrameworkProfile",
-    "TestExecutionResult",
     "TestResultSummary",
 ]
