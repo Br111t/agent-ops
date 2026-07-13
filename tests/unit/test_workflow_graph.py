@@ -4,10 +4,12 @@ from pathlib import Path
 from unittest.mock import patch
 
 from agent_ops.models import (
-    NormalizedExecutionEvidence as ExecutionEvidence,
+    FailureCategory,
+    FailureClassification,
+    RepositoryProfile,
 )
 from agent_ops.models import (
-    RepositoryProfile,
+    NormalizedExecutionEvidence as ExecutionEvidence,
 )
 from agent_ops.models import (
     TestExecutionResult as ExecutionResult,
@@ -69,6 +71,7 @@ def test_graph_stops_before_execution_when_tests_not_requested() -> None:
     assert "execution_result" not in result
     assert "test_summary" not in result
     assert "normalized_evidence" not in result
+    assert "classification" not in result
     execute_tests.assert_not_called()
 
 
@@ -111,6 +114,17 @@ def test_graph_executes_and_parses_when_tests_requested() -> None:
         summary_line="2 passed in 0.10s",
         passed=2,
     )
+    classification = FailureClassification(
+        category=FailureCategory.PASSED,
+        confidence=1.0,
+        evidence=(
+            "The approved test command exited with code 0.",
+            "No test failures or errors were reported.",
+        ),
+        recommended_next_step=(
+            "Continue with reporting or additional diagnostic checks."
+        ),
+    )
 
     with (
         patch(
@@ -133,6 +147,10 @@ def test_graph_executes_and_parses_when_tests_requested() -> None:
             "agent_ops.workflow.nodes.normalize_execution_evidence",
             return_value=normalized_evidence,
         ),
+        patch(
+            "agent_ops.workflow.nodes.classify_failure",
+            return_value=classification,
+        ),
     ):
         graph = build_diagnostic_graph()
 
@@ -148,3 +166,76 @@ def test_graph_executes_and_parses_when_tests_requested() -> None:
     assert result["execution_result"] == execution_result
     assert result["test_summary"] == test_summary
     assert result["normalized_evidence"] == normalized_evidence
+    assert result["classification"] == classification
+
+def test_graph_classifies_unknown_framework_without_execution() -> None:
+    """Unknown frameworks should be classified without running tests."""
+
+    repository_profile = RepositoryProfile(
+        root_path=Path("/tmp/example"),
+        repository_name="example",
+        file_count=2,
+        detected_languages=["JavaScript"],
+        configuration_files=["package.json"],
+        test_files=[],
+        has_git_directory=True,
+    )
+    framework_profile = FrameworkProfile(
+        framework=Framework.UNKNOWN,
+        confidence=0.0,
+        evidence=[],
+        approved_command=None,
+    )
+    classification = FailureClassification(
+        category=FailureCategory.UNSUPPORTED_FRAMEWORK,
+        confidence=1.0,
+        evidence=(
+            "Framework detection returned an unknown framework.",
+        ),
+        missing_evidence=(
+            "No approved test command is available.",
+        ),
+        recommended_next_step=(
+            "Add support for the repository's test framework "
+            "or provide an approved execution strategy."
+        ),
+    )
+
+    with (
+        patch(
+            "agent_ops.workflow.nodes.scan_repository",
+            return_value=repository_profile,
+        ),
+        patch(
+            "agent_ops.workflow.nodes.detect_test_framework",
+            return_value=framework_profile,
+        ),
+        patch(
+            "agent_ops.workflow.nodes.execute_approved_tests",
+        ) as execute_tests,
+        patch(
+            "agent_ops.workflow.nodes.classify_failure",
+            return_value=classification,
+        ) as classify,
+    ):
+        graph = build_diagnostic_graph()
+
+        result = graph.invoke(
+            {
+                "repository_path": "/tmp/example",
+                "run_tests": True,
+            }
+        )
+
+    assert result["repository_profile"] == repository_profile
+    assert result["framework_profile"] == framework_profile
+    assert result["classification"] == classification
+    assert "execution_result" not in result
+    assert "test_summary" not in result
+    assert "normalized_evidence" not in result
+
+    execute_tests.assert_not_called()
+    classify.assert_called_once_with(
+        framework_profile,
+        None,
+    )

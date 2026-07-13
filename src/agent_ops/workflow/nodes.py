@@ -1,10 +1,12 @@
 """Workflow nodes for the Agent-Ops diagnostic graph."""
 
 from agent_ops.analysis import (
+    classify_failure,
     normalize_execution_evidence,
     parse_pytest_result,
 )
 from agent_ops.models import (
+    FailureClassification,
     NormalizedExecutionEvidence,
     RepositoryProfile,
     TestExecutionResult,
@@ -83,4 +85,19 @@ def normalize_evidence_node(
 
     return {
         "normalized_evidence": normalized_evidence,
+    }
+
+
+def classify_result_node(
+    state: AgentOpsState,
+) -> dict[str, FailureClassification]:
+    """Classify the diagnostic result using deterministic evidence."""
+
+    classification = classify_failure(
+        state["framework_profile"],
+        state.get("normalized_evidence"),
+    )
+
+    return {
+        "classification": classification,
     }

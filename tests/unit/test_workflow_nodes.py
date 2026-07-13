@@ -4,10 +4,12 @@ from pathlib import Path
 from unittest.mock import patch
 
 from agent_ops.models import (
-    NormalizedExecutionEvidence as ExecutionEvidence,
+    FailureCategory,
+    FailureClassification,
+    RepositoryProfile,
 )
 from agent_ops.models import (
-    RepositoryProfile,
+    NormalizedExecutionEvidence as ExecutionEvidence,
 )
 from agent_ops.models import (
     TestExecutionResult as ExecutionResult,
@@ -22,6 +24,7 @@ from agent_ops.models import (
     TestResultSummary as ResultSummary,
 )
 from agent_ops.workflow.nodes import (
+    classify_result_node,
     detect_framework_node,
     execute_tests_node,
     inspect_repository_node,
@@ -197,4 +200,52 @@ def test_normalize_evidence_node_combines_execution_evidence() -> None:
     normalize.assert_called_once_with(
         execution_result,
         test_summary,
+    )
+
+
+def test_classify_result_node_returns_classification() -> None:
+    """Normalized evidence should produce a deterministic classification."""
+
+    framework_profile = FrameworkProfile(
+        framework=Framework.PYTEST,
+        confidence=1.0,
+        approved_command=("python", "-m", "pytest", "-q"),
+    )
+    normalized_evidence = ExecutionEvidence(
+        command=("python", "-m", "pytest", "-q"),
+        exit_code=1,
+        timed_out=False,
+        duration_seconds=0.3,
+        summary_found=True,
+        summary_line="1 failed in 0.20s",
+        failed=1,
+    )
+    expected = FailureClassification(
+        category=FailureCategory.TEST_FAILURE,
+        confidence=0.99,
+        evidence=("Parsed output reported 1 failed test(s).",),
+        recommended_next_step=(
+            "Inspect assertion messages and affected test cases."
+        ),
+    )
+
+    with patch(
+        "agent_ops.workflow.nodes.classify_failure",
+        return_value=expected,
+    ) as classify:
+        result = classify_result_node(
+            {
+                "repository_path": ".",
+                "run_tests": True,
+                "framework_profile": framework_profile,
+                "normalized_evidence": normalized_evidence,
+            }
+        )
+
+    assert result == {
+        "classification": expected,
+    }
+    classify.assert_called_once_with(
+        framework_profile,
+        normalized_evidence,
     )

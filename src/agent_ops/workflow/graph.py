@@ -1,9 +1,13 @@
 """LangGraph orchestration for the Agent-Ops diagnostic workflow."""
 
+from typing import Literal
+
 from langgraph.graph import END, START, StateGraph
 from langgraph.graph.state import CompiledStateGraph
 
+from agent_ops.models import TestFramework
 from agent_ops.workflow.nodes import (
+    classify_result_node,
     detect_framework_node,
     execute_tests_node,
     inspect_repository_node,
@@ -13,10 +17,21 @@ from agent_ops.workflow.nodes import (
 from agent_ops.workflow.state import AgentOpsState
 
 
-def should_run_tests(state: AgentOpsState) -> bool:
-    """Return whether the workflow should execute repository tests."""
+def route_after_framework_detection(
+    state: AgentOpsState,
+) -> Literal["skip", "classify", "execute"]:
+    """Choose whether to stop, classify, or execute tests."""
 
-    return state["run_tests"]
+    if not state["run_tests"]:
+        return "skip"
+
+    if (
+        state["framework_profile"].framework
+        is TestFramework.UNKNOWN
+    ):
+        return "classify"
+
+    return "execute"
 
 
 def build_diagnostic_graph() -> CompiledStateGraph:
@@ -44,6 +59,10 @@ def build_diagnostic_graph() -> CompiledStateGraph:
         "normalize_evidence",
         normalize_evidence_node,
     )
+    builder.add_node(
+        "classify_result",
+        classify_result_node,
+    )
 
     builder.add_edge(
         START,
@@ -56,10 +75,11 @@ def build_diagnostic_graph() -> CompiledStateGraph:
 
     builder.add_conditional_edges(
         "detect_framework",
-        should_run_tests,
+        route_after_framework_detection,
         {
-            True: "execute_tests",
-            False: END,
+            "skip": END,
+            "classify": "classify_result",
+            "execute": "execute_tests",
         },
     )
 
@@ -73,6 +93,10 @@ def build_diagnostic_graph() -> CompiledStateGraph:
     )
     builder.add_edge(
         "normalize_evidence",
+        "classify_result",
+    )
+    builder.add_edge(
+        "classify_result",
         END,
     )
 
