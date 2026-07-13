@@ -15,6 +15,17 @@ class FailureCategory(StrEnum):
     TEST_FAILURE = "test_failure"
     UNSUPPORTED_FRAMEWORK = "unsupported_framework"
     UNPARSED_FAILURE = "unparsed_failure"
+
+    COLLECTION_ERROR = "collection_error"
+    FIXTURE_SETUP_ERROR = "fixture_setup_error"
+    IMPORT_ERROR = "import_error"
+    ASSERTION_FAILURE = "assertion_failure"
+    BROWSER_OR_ENVIRONMENT_FAILURE = (
+        "browser_or_environment_failure"
+    )
+    TEST_DATA_FAILURE = "test_data_failure"
+    APPLICATION_FAILURE = "application_failure"
+
     UNKNOWN = "unknown"
 
 

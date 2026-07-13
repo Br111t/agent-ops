@@ -148,3 +148,116 @@ def test_classify_failure_detects_unsupported_framework() -> None:
     assert result.category is FailureCategory.UNSUPPORTED_FRAMEWORK
     assert result.confidence == 1.0
     assert result.missing_evidence
+
+
+@pytest.mark.parametrize(
+    ("evidence", "expected_category", "expected_confidence"),
+    [
+        (
+            make_evidence(
+                exit_code=2,
+                passed=0,
+                errors=1,
+                summary_line="1 error in 0.10s",
+                error_tests=("collecting",),
+                exception_types=("ModuleNotFoundError",),
+            ),
+            FailureCategory.IMPORT_ERROR,
+            1.0,
+        ),
+        (
+            make_evidence(
+                exit_code=2,
+                passed=0,
+                errors=1,
+                summary_line="1 error in 0.10s",
+                error_tests=("collecting",),
+                exception_types=("SyntaxError",),
+            ),
+            FailureCategory.COLLECTION_ERROR,
+            0.98,
+        ),
+        (
+            make_evidence(
+                exit_code=1,
+                passed=0,
+                errors=1,
+                summary_line="1 error in 0.10s",
+                error_tests=("tests/test_api.py::test_client",),
+                exception_types=("RuntimeError",),
+                traceback_files=("tests/conftest.py",),
+            ),
+            FailureCategory.FIXTURE_SETUP_ERROR,
+            0.98,
+        ),
+        (
+            make_evidence(
+                exit_code=1,
+                passed=0,
+                failed=1,
+                summary_line="1 failed in 0.10s",
+                exception_types=("AssertionError",),
+                assertion_messages=("assert 1 == 2",),
+            ),
+            FailureCategory.ASSERTION_FAILURE,
+            1.0,
+        ),
+        (
+            make_evidence(
+                exit_code=1,
+                passed=0,
+                errors=1,
+                summary_line="1 error in 0.10s",
+                exception_types=(
+                    "playwright._impl._errors.TimeoutError",
+                ),
+                traceback_files=(
+                    "site-packages/playwright/_impl/_connection.py",
+                ),
+            ),
+            FailureCategory.BROWSER_OR_ENVIRONMENT_FAILURE,
+            0.95,
+        ),
+        (
+            make_evidence(
+                exit_code=1,
+                passed=0,
+                failed=1,
+                summary_line="1 failed in 0.10s",
+                exception_types=("json.decoder.JSONDecodeError",),
+                traceback_files=("tests/data/test_payloads.py",),
+            ),
+            FailureCategory.TEST_DATA_FAILURE,
+            0.90,
+        ),
+        (
+            make_evidence(
+                exit_code=1,
+                passed=0,
+                failed=1,
+                summary_line="1 failed in 0.10s",
+                exception_types=("ValueError",),
+                traceback_files=("src/agent_ops/service.py",),
+            ),
+            FailureCategory.APPLICATION_FAILURE,
+            0.85,
+        ),
+    ],
+)
+def test_classify_failure_refines_categories_from_explicit_markers(
+    pytest_profile: FrameworkProfile,
+    evidence: ExecutionEvidence,
+    expected_category: FailureCategory,
+    expected_confidence: float,
+) -> None:
+    """Specific evidence should select a deterministic refined category."""
+
+    result = classify_failure(
+        pytest_profile,
+        evidence,
+    )
+
+    assert result.category is expected_category
+    assert result.confidence == expected_confidence
+    assert result.evidence
+    assert result.recommended_next_step

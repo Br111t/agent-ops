@@ -28,6 +28,12 @@ The initial release focuses on:
 - Diagnostic report generation
 - Complete tool-call tracing
 
+Failure classification is deterministic and local-first. Explicit execution
+signals first produce broad outcomes, then high-confidence markers refine
+import, collection, fixture setup, assertion, browser/environment, test-data,
+and application failures. Confidence values are assigned by rule strength,
+and missing evidence is reported rather than guessed.
+
 Patch generation, sandbox verification, multimodal analysis, and the web console are planned for later phases.
 
 ## Core Workflow
