@@ -3,6 +3,7 @@
 from typing import NotRequired, TypedDict
 
 from agent_ops.models import (
+    FailureClassification,
     NormalizedExecutionEvidence,
     RepositoryProfile,
     TestExecutionResult,
@@ -22,3 +23,5 @@ class AgentOpsState(TypedDict):
     execution_result: NotRequired[TestExecutionResult]
     test_summary: NotRequired[TestResultSummary]
     normalized_evidence: NotRequired[NormalizedExecutionEvidence]
+    classification: NotRequired[FailureClassification]
+
