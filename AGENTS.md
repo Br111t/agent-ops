@@ -23,7 +23,8 @@ During an active discussion, newer code, diffs, or corrections supplied by the u
 ## Current Development Phase
 
 The deterministic diagnostic foundation and Phase 1 evaluation baseline are
-complete. Implemented foundations include:
+complete. Phase 2 durable diagnostic runs are in progress. Implemented foundations
+include:
 
 * Repository discovery and inspection
 * Test-framework detection
@@ -37,11 +38,12 @@ complete. Implemented foundations include:
 * Versioned command-safety evaluation
 * Evaluation dataset sanitization and promotion governance
 * Traceable tool activity
+* Stable diagnostic run identifiers and explicit lifecycle stages
+* Agent-Ops version, target Git revision, and target content-snapshot provenance
 
-The next planned implementation phase is durable diagnostic runs: stable run IDs,
-repository and version provenance, SQLite-backed checkpoints, explicit lifecycle
-models, safe resume, checkpoint history, time-travel forks, and replay protection.
-Do not assume that these planned features already exist.
+The remaining Phase 2 work is SQLite-backed checkpoints, safe resume, checkpoint
+history, time-travel forks, and replay protection. Do not assume that these planned
+features already exist.
 
 Planned later capabilities may include:
 
@@ -107,6 +109,8 @@ The current CLI flow is:
 ```text
 Parse CLI arguments
         ↓
+Initialize a stable diagnostic run
+        ↓
 Scan the target repository
         ↓
 Detect its test framework
@@ -121,13 +125,16 @@ Detect its test framework
                     ↓
             Classify the result
                     ↓
+            Complete the run lifecycle
+                    ↓
             Return supported JSON fields
 ```
 
-The graph state contains normalized evidence and classification. The current CLI
-serializes an immutable diagnostic report containing the supported repository,
-framework, execution, normalized-evidence, and classification sections. Public
-changes must be additive where practical and covered by CLI tests.
+The graph state contains run identity and lifecycle, repository provenance,
+normalized evidence, and classification. The current CLI serializes an immutable
+diagnostic report containing the completed run, repository, framework, execution,
+normalized-evidence, and classification sections. Public changes must be additive
+where practical and covered by CLI tests.
 
 The CLI entry point is:
 
@@ -145,6 +152,12 @@ Run the detected approved tests:
 
 ```bash
 python -m agent_ops /path/to/repository --run-tests
+```
+
+An orchestrator may supply a stable UUID. If omitted, the graph creates one:
+
+```bash
+python -m agent_ops /path/to/repository --run-id <uuid>
 ```
 
 Do not add test execution to the default CLI path. Test execution must remain explicit.

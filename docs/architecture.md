@@ -38,6 +38,7 @@ The coordinating-agent decision is recorded in
 flowchart TD
     CLI[CLI] --> Graph[Diagnostic graph]
     Graph --> Report[Diagnostic report]
+    Graph --> Run[Run lifecycle]
     Graph --> Repo[Repository inspection]
     Graph --> Tools[Approved test tools]
     Graph --> Analysis[Evidence analysis]
@@ -49,10 +50,11 @@ flowchart TD
 
 ### Command-line interface
 
-`agent_ops.cli` parses the repository path and the explicit `--run-tests` option,
-invokes the compiled graph, builds an immutable public diagnostic report, and
-serializes the supported result fields as JSON. Optional report sections are emitted
-only when the graph produced them. The default path does not run tests.
+`agent_ops.cli` parses the repository path, the explicit `--run-tests` option, and an
+optional caller-supplied `--run-id`. It invokes the compiled graph, builds an
+immutable public diagnostic report, and serializes the supported result fields as
+JSON. Optional report sections are emitted only when the graph produced them. The
+default path does not run tests.
 
 ### Workflow orchestration
 
@@ -64,20 +66,25 @@ The implemented graph is:
 
 ```mermaid
 flowchart TD
-    Start([Start]) --> Inspect[Inspect repository]
+    Start([Start]) --> Initialize[Initialize run]
+    Initialize --> Inspect[Inspect repository]
     Inspect --> Detect[Detect framework]
     Detect --> Route{Run tests?}
-    Route -- No --> End([End])
+    Route -- No --> Complete[Complete run]
     Route -- Unknown framework --> Classify[Classify result]
     Route -- Approved framework --> Execute[Execute approved tests]
     Execute --> Parse[Parse pytest result]
     Parse --> Normalize[Normalize evidence]
     Normalize --> Classify
-    Classify --> End
+    Classify --> Complete
+    Complete --> End([End])
 ```
 
-The graph currently compiles without a checkpointer. Durable checkpoints, resume,
-time travel, streaming, and human interrupts are planned orchestration features.
+The graph creates or accepts one stable UUID before diagnostic work, advances an
+explicit immutable lifecycle model after successful stages, and completes that
+lifecycle before exposing a report. It currently compiles without a checkpointer.
+Durable checkpoints, resume, time travel, streaming, and human interrupts remain
+planned orchestration features.
 
 ### Repository intelligence
 
@@ -85,6 +92,12 @@ time travel, streaming, and human interrupts are planned orchestration features.
 frameworks. Pytest is the initial supported framework. Detection returns a
 structured profile containing confidence, evidence, and an approved command when
 one can be selected safely.
+
+Repository inspection also produces version provenance without executing Git or
+repository code. A Git commit SHA is read from bounded regular `.git` metadata when
+available. Independently, an ordered SHA-256 snapshot covers the non-ignored paths
+and bytes Agent-Ops inspected. The snapshot therefore distinguishes uncommitted
+local changes from their committed Git base.
 
 ### Tool execution and safety
 
@@ -119,10 +132,11 @@ testable.
 
 ### Domain models
 
-`agent_ops.models` contains immutable Pydantic models for repository profiles,
-framework detection, execution evidence, parsed summaries, normalized evidence,
-failure classifications, and the public diagnostic report. Models forbid unexpected
-fields where the schema is controlled and validate counts, durations, and confidence
+`agent_ops.models` contains immutable Pydantic models for diagnostic run identity,
+lifecycle and provenance, repository profiles, framework detection, execution
+evidence, parsed summaries, normalized evidence, failure classifications, and the
+public diagnostic report. Models forbid unexpected fields where the schema is
+controlled and validate counts, durations, timestamps, identifiers, and confidence
 ranges.
 
 ### Evaluation
@@ -142,6 +156,7 @@ sanitization, trusted labeling, versioning, and promotion are governed by
 
 The graph state is transient orchestration state. It currently contains:
 
+- a stable run identifier, lifecycle, and version provenance;
 - repository path and execution intent;
 - repository and framework profiles;
 - captured test execution;
@@ -162,18 +177,24 @@ These concepts should remain distinct as persistence is added:
 Large artifacts should not be copied into every checkpoint. A checkpoint should
 contain stable evidence references plus the provenance needed to interpret them.
 
-## Planned Durable Orchestration
+## Durable Orchestration
 
-When the workflow becomes long-running or approval-driven, persistence should add:
+The implemented persistence foundation contains:
 
 - a stable diagnostic run identifier;
-- repository identity and commit SHA;
+- Agent-Ops version provenance;
+- target repository identity, optional Git commit SHA, and required content snapshot;
+- current lifecycle status and stage; and
+- monotonically ordered lifecycle transitions with timezone-aware timestamps.
+
+The remaining persistence work should add:
+
 - workflow, classifier, prompt, and model versions when applicable;
-- current stage and next permitted operation;
+- the next permitted operation;
 - evidence references;
 - approval state;
 - error or interruption information; and
-- monotonically ordered state transitions.
+- durable checkpoint sequence metadata.
 
 SQLite is the preferred first durable checkpointer for local operation. A deployed,
 concurrent service may later use PostgreSQL. In-memory persistence is appropriate
@@ -182,6 +203,9 @@ only for tests and demonstrations.
 Time-travel execution must create a new branch without deleting the original run.
 Returning to a checkpoint does not reverse real-world side effects. Any replayable
 node that can mutate external state must be idempotent or require renewed approval.
+
+The run and repository provenance decision is recorded in
+[`decisions/004-stable-run-and-repository-provenance.md`](decisions/004-stable-run-and-repository-provenance.md).
 
 ## Planned Streaming and Observability
 

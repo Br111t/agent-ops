@@ -63,6 +63,8 @@ evaluation decision is recorded in
 
 ## Phase 2: Durable Diagnostic Runs
 
+**Status:** In progress
+
 **Goal:** Resume long-running work without repeating completed diagnostic steps.
 
 Deliverables:
@@ -78,6 +80,19 @@ Deliverables:
 
 Large execution artifacts remain in an evidence store and are referenced by
 checkpoints rather than duplicated into graph state.
+
+Implemented foundation:
+
+- generated or caller-supplied UUID run identifiers;
+- immutable running and completed lifecycle contracts with ordered stages and
+  timezone-aware timestamps;
+- Agent-Ops package version provenance;
+- safe, non-executing reads of regular Git HEAD metadata; and
+- deterministic SHA-256 snapshots of inspected non-ignored repository content,
+  including local uncommitted changes.
+
+SQLite checkpoints, resume, retained checkpoint history, time-travel forks, and
+replay protection remain to be implemented.
 
 ## Phase 3: Human-Reviewed Recommendations and Corrections
 

@@ -17,7 +17,7 @@ Rather than applying changes autonomously, Agent-Ops begins with a read-only dia
 ## Project Status
 
 **Status:** Active development  
-**Current phase:** Phase 1 evaluation baseline complete; Phase 2 durable diagnostic runs next
+**Current phase:** Phase 2 durable diagnostic runs in progress
 
 The initial release focuses on:
 
@@ -27,6 +27,8 @@ The initial release focuses on:
 - Evidence-supported failure classification
 - Diagnostic report generation
 - Complete tool-call tracing
+- Stable run identity and explicit lifecycle stages
+- Agent-Ops and target-repository version provenance
 
 Failure classification is deterministic and local-first. Explicit execution
 signals first produce broad outcomes, then high-confidence markers refine
@@ -39,6 +41,8 @@ Patch generation, sandbox verification, multimodal analysis, and the web console
 ## Current Workflow
 
 ```text
+Initialize a stable diagnostic run
+        ↓
 Inspect repository
         ↓
 Detect the test framework
@@ -49,20 +53,34 @@ Parse and normalize captured pytest evidence
         ↓
 Classify the failure
         ↓
+Complete the run lifecycle
+        ↓
 Return a structured diagnostic report
 ```
 
 ## Structured Diagnostic Output
 
-The CLI returns backward-compatible JSON containing the repository and detected test
-framework. When an approved test command runs, the report also retains the raw
-execution result and parsed summary, then adds normalized evidence and the supported
-failure classification.
+The CLI returns JSON containing a completed run contract, the repository, and the
+detected test framework. The run contract records a stable UUID, lifecycle
+timestamps, the Agent-Ops version, an optional target Git revision, and a required
+SHA-256 snapshot of the inspected target content. The content snapshot represents
+the files Agent-Ops actually inspected, including local uncommitted edits; the Git
+revision identifies the committed base when it can be read safely.
+
+When an approved test command runs, the report also retains the raw execution result
+and parsed summary, then adds normalized evidence and the supported failure
+classification.
 
 Report sections are emitted only when the workflow produced them. For example, an
 unsupported framework can return a classification without claiming that a test
 command ran. Inspection without `--run-tests` remains read-only and omits execution
 and classification fields.
+
+Agent-Ops creates a run ID by default. An external orchestrator may assign one:
+
+```bash
+python -m agent_ops /path/to/repository --run-id <uuid>
+```
 
 ## Deterministic Evaluation
 
