@@ -36,25 +36,31 @@ and missing evidence is reported rather than guessed.
 
 Patch generation, sandbox verification, multimodal analysis, and the web console are planned for later phases.
 
-## Core Workflow
+## Current Workflow
 
 ```text
 Inspect repository
         ↓
-Load relevant engineering skills
+Detect the test framework
         ↓
-Select and run approved tests
+Optionally run an explicitly approved test command
         ↓
-Collect code, logs, screenshots, and traces
+Parse and normalize captured pytest evidence
         ↓
 Classify the failure
-        ↓
-Produce evidence-supported recommendations
-        ↓
-Propose candidate corrections
-        ↓
-Request human approval
-        ↓
-Test approved changes in a sandbox
-        ↓
-Measure and report the outcome
+```
+
+## Target Direction
+
+Later phases may add evidence-supported recommendations, human-approved candidate
+corrections, sandbox verification, persistent checkpoints, streaming, expanded
+artifact analysis, and optional specialist agents. These capabilities will be added
+only after their safety and evaluation contracts are established.
+
+## Design Documentation
+
+- [Architecture](docs/architecture.md)
+- [Roadmap](docs/roadmap.md)
+- [Failure taxonomy](docs/failure-taxonomy.md)
+- [Evaluation strategy](docs/repository_aware_evaluation.md)
+- [Architectural decisions](docs/decisions/)

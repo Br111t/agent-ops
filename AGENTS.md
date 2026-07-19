@@ -67,15 +67,27 @@ The primary package uses a `src` layout:
 src/agent_ops/
 ├── __main__.py          # Command-line entry point
 ├── analysis/            # Parsing and analysis of captured evidence
+├── evaluation/          # Reserved evaluation runners and metrics
 ├── models/              # Pydantic domain and result models
 ├── repository/          # Repository scanning and framework detection
-└── tools/               # Approved tool and test execution
+├── safety.py/           # Reserved command and path policy modules
+├── tools/               # Approved tool and test execution
+└── workflow/            # LangGraph state, nodes, routing, and construction
 ```
 
 Tests are stored under:
 
 ```text
 tests/
+├── fixtures/
+├── integration/
+└── unit/
+```
+
+Evaluation datasets are stored under:
+
+```text
+evals/datasets/
 ```
 
 Before introducing a new top-level package, determine whether it belongs in one of the existing architectural areas.
@@ -91,14 +103,22 @@ Scan the target repository
         ↓
 Detect its test framework
         ↓
-Return structured repository metadata
-        ↓
-Optionally execute an approved test command
-        ↓
-Parse captured pytest output
-        ↓
-Return structured execution evidence as JSON
+        ├── inspection only → return metadata
+        ├── unsupported framework → classify without execution
+        └── explicit --run-tests
+                    ↓
+            Execute an approved command
+                    ↓
+            Parse and normalize evidence
+                    ↓
+            Classify the result
+                    ↓
+            Return supported JSON fields
 ```
+
+The graph state contains normalized evidence and classification. The current CLI
+serializes repository, framework, and test-execution fields; changes to expose
+additional public fields must be additive where practical and covered by CLI tests.
 
 The CLI entry point is:
 
@@ -151,8 +171,8 @@ For a focused change, run the narrowest relevant test first, followed by the com
 Examples:
 
 ```bash
-python -m pytest tests/test_result_parser.py
-python -m pytest tests/test_cli.py
+python -m pytest tests/unit/test_result_parser.py
+python -m pytest tests/unit/test_cli.py
 python -m pytest
 ```
 
