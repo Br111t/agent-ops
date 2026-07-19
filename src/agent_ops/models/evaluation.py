@@ -2,7 +2,7 @@
 
 from enum import StrEnum
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, computed_field, model_validator
 
 from agent_ops.models.execution_evidence import NormalizedExecutionEvidence
 from agent_ops.models.failure_classification import FailureCategory
@@ -15,6 +15,14 @@ class EvaluationSourceType(StrEnum):
     SYNTHETIC = "synthetic"
     SANITIZED_REAL = "sanitized_real"
     REGRESSION = "regression"
+
+
+class EvaluationCaseChange(StrEnum):
+    """Outcome changes between baseline and candidate evaluation cases."""
+
+    REGRESSION = "regression"
+    IMPROVEMENT = "improvement"
+    UNCHANGED = "unchanged"
 
 
 class ClassificationEvaluationCase(BaseModel):
@@ -124,3 +132,89 @@ class ClassificationEvaluationReport(BaseModel):
     confusion_matrix: dict[str, dict[str, int]]
     categories: tuple[CategoryEvaluationMetrics, ...]
     cases: tuple[ClassificationCaseEvaluationResult, ...]
+
+    @model_validator(mode="after")
+    def validate_case_totals(self) -> "ClassificationEvaluationReport":
+        """Require aggregate counts to match the serialized case results."""
+        case_ids = tuple(case.case_id for case in self.cases)
+
+        if len(self.cases) != self.total_cases:
+            raise ValueError("Evaluation case count must match total_cases.")
+
+        if len(case_ids) != len(set(case_ids)):
+            raise ValueError("Evaluation report case IDs must be unique.")
+
+        if sum(case.passed for case in self.cases) != self.passed_cases:
+            raise ValueError("Passing case count must match passed_cases.")
+
+        return self
+
+
+class ClassificationCaseComparison(BaseModel):
+    """Comparison of one case across baseline and candidate reports."""
+
+    model_config = ConfigDict(
+        extra="forbid",
+        frozen=True,
+    )
+
+    case_id: str = Field(min_length=1)
+    expected_category: FailureCategory
+    baseline_actual_category: FailureCategory
+    candidate_actual_category: FailureCategory
+    baseline_passed: bool
+    candidate_passed: bool
+    change: EvaluationCaseChange
+
+
+class ClassificationEvaluationComparison(BaseModel):
+    """Machine-readable comparison and gate result for two evaluations."""
+
+    model_config = ConfigDict(
+        extra="forbid",
+        frozen=True,
+    )
+
+    dataset_name: str = Field(min_length=1)
+    dataset_version: str = Field(min_length=1)
+    baseline_system_version: str = Field(min_length=1)
+    candidate_system_version: str = Field(min_length=1)
+    total_cases: int = Field(gt=0)
+    passed_cases_delta: int
+    category_accuracy_delta: float = Field(ge=-1.0, le=1.0)
+    abstention_accuracy_delta: float = Field(ge=-1.0, le=1.0)
+    evidence_accuracy_delta: float = Field(ge=-1.0, le=1.0)
+    macro_f1_delta: float = Field(ge=-1.0, le=1.0)
+    duration_seconds_delta: float
+    cases: tuple[ClassificationCaseComparison, ...]
+    gate_failures: tuple[str, ...] = ()
+
+    @computed_field
+    @property
+    def regression_case_ids(self) -> tuple[str, ...]:
+        """Return case identifiers that changed from passing to failing."""
+        return tuple(
+            case.case_id for case in self.cases if case.change is EvaluationCaseChange.REGRESSION
+        )
+
+    @computed_field
+    @property
+    def improvement_case_ids(self) -> tuple[str, ...]:
+        """Return case identifiers that changed from failing to passing."""
+        return tuple(
+            case.case_id for case in self.cases if case.change is EvaluationCaseChange.IMPROVEMENT
+        )
+
+    @computed_field
+    @property
+    def gate_passed(self) -> bool:
+        """Return whether the candidate satisfies every comparison gate."""
+        return not self.gate_failures
+
+    @model_validator(mode="after")
+    def validate_case_count(self) -> "ClassificationEvaluationComparison":
+        """Require one comparison result per evaluation case."""
+        if len(self.cases) != self.total_cases:
+            raise ValueError("Comparison case count must match total_cases.")
+
+        return self
