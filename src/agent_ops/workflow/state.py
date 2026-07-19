@@ -1,8 +1,10 @@
 """State schema for the Agent-Ops diagnostic workflow."""
 
 from typing import NotRequired, TypedDict
+from uuid import UUID
 
 from agent_ops.models import (
+    DiagnosticRun,
     FailureClassification,
     NormalizedExecutionEvidence,
     RepositoryProfile,
@@ -17,7 +19,9 @@ class AgentOpsState(TypedDict):
 
     repository_path: str
     run_tests: bool
+    run_id: NotRequired[UUID]
 
+    run: NotRequired[DiagnosticRun]
     repository_profile: NotRequired[RepositoryProfile]
     framework_profile: NotRequired[TestFrameworkProfile]
     execution_result: NotRequired[TestExecutionResult]

@@ -3,10 +3,12 @@
 import argparse
 import json
 from collections.abc import Sequence
+from uuid import UUID
 
 from agent_ops.models import (
     DiagnosticExecutionReport,
     DiagnosticReport,
+    DiagnosticRunStatus,
 )
 from agent_ops.workflow import build_diagnostic_graph
 from agent_ops.workflow.state import AgentOpsState
@@ -29,11 +31,19 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Execute the detected approved test command.",
     )
+    parser.add_argument(
+        "--run-id",
+        type=UUID,
+        help="Optional UUID to assign as the stable diagnostic run identifier.",
+    )
     return parser
 
 
 def build_diagnostic_report(state: AgentOpsState) -> DiagnosticReport:
     """Build the public diagnostic report from completed graph state."""
+    if state["run"].status is not DiagnosticRunStatus.COMPLETED:
+        raise ValueError("A diagnostic report requires a completed run.")
+
     execution_result = state.get("execution_result")
     test_summary = state.get("test_summary")
 
@@ -48,6 +58,7 @@ def build_diagnostic_report(state: AgentOpsState) -> DiagnosticReport:
         )
 
     return DiagnosticReport(
+        run=state["run"],
         repository=state["repository_profile"],
         test_framework=state["framework_profile"],
         test_execution=test_execution,
@@ -61,12 +72,14 @@ def main(argv: Sequence[str] | None = None) -> None:
     args = build_parser().parse_args(argv)
 
     graph = build_diagnostic_graph()
-    state = graph.invoke(
-        {
-            "repository_path": args.repository_path,
-            "run_tests": args.run_tests,
-        }
-    )
+    input_state: AgentOpsState = {
+        "repository_path": args.repository_path,
+        "run_tests": args.run_tests,
+    }
+    if args.run_id is not None:
+        input_state["run_id"] = args.run_id
+
+    state = graph.invoke(input_state)
 
     report = build_diagnostic_report(state)
 

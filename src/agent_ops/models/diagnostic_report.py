@@ -2,6 +2,7 @@
 
 from pydantic import BaseModel, ConfigDict, Field, computed_field
 
+from agent_ops.models.diagnostic_run import DiagnosticRun
 from agent_ops.models.execution_evidence import NormalizedExecutionEvidence
 from agent_ops.models.failure_classification import FailureClassification
 from agent_ops.models.repository import RepositoryProfile
@@ -53,6 +54,7 @@ class DiagnosticReport(BaseModel):
         frozen=True,
     )
 
+    run: DiagnosticRun
     repository: RepositoryProfile
     test_framework: TestFrameworkProfile
     test_execution: DiagnosticExecutionReport | None = None

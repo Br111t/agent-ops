@@ -1,13 +1,16 @@
 """Tests for the Agent-Ops command-line interface."""
 
 import json
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from unittest.mock import Mock
+from uuid import UUID
 
 import pytest
 
 from agent_ops.cli import build_diagnostic_report, main
 from agent_ops.models import (
+    DiagnosticRun,
     FailureCategory,
     FailureClassification,
     NormalizedExecutionEvidence,
@@ -26,6 +29,10 @@ from agent_ops.models import (
     TestResultSummary as ResultSummary,
 )
 
+RUN_ID = UUID("8ba9fe08-23c7-4eb0-8290-610dd0075e20")
+STARTED_AT = datetime(2026, 7, 19, 12, 0, tzinfo=UTC)
+SNAPSHOT_SHA256 = "a" * 64
+
 
 @pytest.fixture
 def repository_profile(tmp_path: Path) -> RepositoryProfile:
@@ -38,7 +45,26 @@ def repository_profile(tmp_path: Path) -> RepositoryProfile:
         configuration_files=["pyproject.toml"],
         test_files=["tests/test_sample.py"],
         has_git_directory=True,
+        snapshot_sha256=SNAPSHOT_SHA256,
     )
+
+
+@pytest.fixture
+def completed_run(tmp_path: Path) -> DiagnosticRun:
+    """Return completed run metadata accepted by the public report boundary."""
+    run = DiagnosticRun.start(
+        run_id=RUN_ID,
+        target_repository=tmp_path,
+        agent_ops_version="0.1.0",
+        started_at=STARTED_AT,
+    )
+    run = run.record_repository_version(
+        target_repository=tmp_path,
+        snapshot_sha256=SNAPSHOT_SHA256,
+        git_commit_sha=None,
+        recorded_at=STARTED_AT + timedelta(seconds=1),
+    )
+    return run.complete(completed_at=STARTED_AT + timedelta(seconds=2))
 
 
 @pytest.fixture
@@ -84,6 +110,7 @@ def test_cli_does_not_run_tests_by_default(
     tmp_path: Path,
     repository_profile: RepositoryProfile,
     framework_profile: FrameworkProfile,
+    completed_run: DiagnosticRun,
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
@@ -94,6 +121,7 @@ def test_cli_does_not_run_tests_by_default(
         "run_tests": False,
         "repository_profile": repository_profile,
         "framework_profile": framework_profile,
+        "run": completed_run,
     }
 
     monkeypatch.setattr(
@@ -114,6 +142,7 @@ def test_cli_does_not_run_tests_by_default(
 
     assert output["repository"] == repository_profile.model_dump(mode="json")
     assert output["test_framework"] == framework_profile.model_dump(mode="json")
+    assert output["run"] == completed_run.model_dump(mode="json")
     assert "test_execution" not in output
     assert "normalized_evidence" not in output
     assert "classification" not in output
@@ -125,6 +154,7 @@ def test_cli_runs_tests_when_explicitly_requested(
     framework_profile: FrameworkProfile,
     normalized_evidence: NormalizedExecutionEvidence,
     passed_classification: FailureClassification,
+    completed_run: DiagnosticRun,
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
@@ -153,6 +183,7 @@ def test_cli_runs_tests_when_explicitly_requested(
         "test_summary": test_summary,
         "normalized_evidence": normalized_evidence,
         "classification": passed_classification,
+        "run": completed_run,
     }
 
     monkeypatch.setattr(
@@ -178,12 +209,16 @@ def test_cli_runs_tests_when_explicitly_requested(
     assert output["test_execution"]["summary"]["passed"] == 11
     assert output["normalized_evidence"] == normalized_evidence.model_dump(mode="json")
     assert output["classification"] == passed_classification.model_dump(mode="json")
+    assert output["run"]["run_id"] == str(RUN_ID)
+    assert output["run"]["status"] == "completed"
+    assert output["run"]["provenance"]["target_repository_version"] == (f"sha256:{SNAPSHOT_SHA256}")
 
 
 def test_cli_reports_failed_execution_without_discarding_raw_evidence(
     tmp_path: Path,
     repository_profile: RepositoryProfile,
     framework_profile: FrameworkProfile,
+    completed_run: DiagnosticRun,
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
@@ -231,6 +266,7 @@ def test_cli_reports_failed_execution_without_discarding_raw_evidence(
         "test_summary": test_summary,
         "normalized_evidence": normalized_evidence,
         "classification": classification,
+        "run": completed_run,
     }
 
     monkeypatch.setattr(
@@ -252,6 +288,7 @@ def test_cli_reports_failed_execution_without_discarding_raw_evidence(
 def test_cli_classifies_unsupported_framework_without_execution(
     tmp_path: Path,
     repository_profile: RepositoryProfile,
+    completed_run: DiagnosticRun,
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
@@ -280,6 +317,7 @@ def test_cli_classifies_unsupported_framework_without_execution(
         "repository_profile": repository_profile,
         "framework_profile": framework_profile,
         "classification": classification,
+        "run": completed_run,
     }
 
     monkeypatch.setattr(
@@ -300,6 +338,7 @@ def test_diagnostic_report_rejects_partial_execution_state(
     tmp_path: Path,
     repository_profile: RepositoryProfile,
     framework_profile: FrameworkProfile,
+    completed_run: DiagnosticRun,
 ) -> None:
     """Execution and parsed summary must cross the public boundary together."""
     execution_result = ExecutionResult(
@@ -319,5 +358,37 @@ def test_diagnostic_report_rejects_partial_execution_state(
                 "repository_profile": repository_profile,
                 "framework_profile": framework_profile,
                 "execution_result": execution_result,
+                "run": completed_run,
             }
         )
+
+
+def test_cli_passes_explicit_run_id_to_graph(
+    tmp_path: Path,
+    repository_profile: RepositoryProfile,
+    framework_profile: FrameworkProfile,
+    completed_run: DiagnosticRun,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """The CLI should allow orchestration to assign a stable run identity."""
+    graph = Mock()
+    graph.invoke.return_value = {
+        "repository_path": str(tmp_path),
+        "run_tests": False,
+        "repository_profile": repository_profile,
+        "framework_profile": framework_profile,
+        "run": completed_run,
+    }
+    monkeypatch.setattr("agent_ops.cli.build_diagnostic_graph", lambda: graph)
+
+    main([str(tmp_path), "--run-id", str(RUN_ID)])
+
+    graph.invoke.assert_called_once_with(
+        {
+            "repository_path": str(tmp_path),
+            "run_tests": False,
+            "run_id": RUN_ID,
+        }
+    )
+    assert json.loads(capsys.readouterr().out)["run"]["run_id"] == str(RUN_ID)
