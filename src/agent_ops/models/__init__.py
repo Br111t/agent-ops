@@ -1,5 +1,9 @@
 """Public Agent-Ops data models."""
 
+from agent_ops.models.diagnostic_report import (
+    DiagnosticExecutionReport,
+    DiagnosticReport,
+)
 from agent_ops.models.evaluation import (
     CategoryEvaluationMetrics,
     ClassificationCaseEvaluationResult,
@@ -30,6 +34,8 @@ __all__ = [
     "ClassificationEvaluationCase",
     "ClassificationEvaluationDataset",
     "ClassificationEvaluationReport",
+    "DiagnosticExecutionReport",
+    "DiagnosticReport",
     "EvaluationSourceType",
     "ExtractedExecutionDetails",
     "FailureCategory",

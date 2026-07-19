@@ -4,7 +4,12 @@ import argparse
 import json
 from collections.abc import Sequence
 
+from agent_ops.models import (
+    DiagnosticExecutionReport,
+    DiagnosticReport,
+)
 from agent_ops.workflow import build_diagnostic_graph
+from agent_ops.workflow.state import AgentOpsState
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -27,6 +32,30 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def build_diagnostic_report(state: AgentOpsState) -> DiagnosticReport:
+    """Build the public diagnostic report from completed graph state."""
+    execution_result = state.get("execution_result")
+    test_summary = state.get("test_summary")
+
+    if (execution_result is None) != (test_summary is None):
+        raise ValueError("Execution result and test summary must be present together.")
+
+    test_execution = None
+    if execution_result is not None and test_summary is not None:
+        test_execution = DiagnosticExecutionReport.from_results(
+            execution_result,
+            test_summary,
+        )
+
+    return DiagnosticReport(
+        repository=state["repository_profile"],
+        test_framework=state["framework_profile"],
+        test_execution=test_execution,
+        normalized_evidence=state.get("normalized_evidence"),
+        classification=state.get("classification"),
+    )
+
+
 def main(argv: Sequence[str] | None = None) -> None:
     """Run the Agent-Ops diagnostic workflow."""
     args = build_parser().parse_args(argv)
@@ -39,22 +68,6 @@ def main(argv: Sequence[str] | None = None) -> None:
         }
     )
 
-    repository_profile = state["repository_profile"]
-    framework_profile = state["framework_profile"]
+    report = build_diagnostic_report(state)
 
-    result = {
-        "repository": repository_profile.model_dump(mode="json"),
-        "test_framework": framework_profile.model_dump(mode="json"),
-    }
-
-    if args.run_tests:
-        execution_result = state["execution_result"]
-        test_summary = state["test_summary"]
-
-        result["test_execution"] = {
-            **execution_result.model_dump(mode="json"),
-            "succeeded": execution_result.succeeded,
-            "summary": test_summary.model_dump(mode="json"),
-        }
-
-    print(json.dumps(result, indent=2))
+    print(json.dumps(report.to_public_dict(), indent=2))

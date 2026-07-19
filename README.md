@@ -17,7 +17,7 @@ Rather than applying changes autonomously, Agent-Ops begins with a read-only dia
 ## Project Status
 
 **Status:** Active development  
-**Current phase:** Repository inspection and failure-analysis foundation
+**Current phase:** Deterministic diagnostic reporting and evaluation baseline
 
 The initial release focuses on:
 
@@ -48,7 +48,21 @@ Optionally run an explicitly approved test command
 Parse and normalize captured pytest evidence
         ↓
 Classify the failure
+        ↓
+Return a structured diagnostic report
 ```
+
+## Structured Diagnostic Output
+
+The CLI returns backward-compatible JSON containing the repository and detected test
+framework. When an approved test command runs, the report also retains the raw
+execution result and parsed summary, then adds normalized evidence and the supported
+failure classification.
+
+Report sections are emitted only when the workflow produced them. For example, an
+unsupported framework can return a classification without claiming that a test
+command ran. Inspection without `--run-tests` remains read-only and omits execution
+and classification fields.
 
 ## Target Direction
 
