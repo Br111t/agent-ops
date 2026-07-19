@@ -32,6 +32,7 @@ junit.xml
 test-results/
 allure-report/
 allure-results/
+smoke-test-output/
 
 # Type checking and linting
 .mypy_cache/
