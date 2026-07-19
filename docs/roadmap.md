@@ -89,10 +89,15 @@ Implemented foundation:
 - Agent-Ops package version provenance;
 - safe, non-executing reads of regular Git HEAD metadata; and
 - deterministic SHA-256 snapshots of inspected non-ignored repository content,
-  including local uncommitted changes.
+  including local uncommitted changes;
+- a local SQLite saver with deterministic connection lifetime;
+- run UUIDs mapped directly to LangGraph thread IDs;
+- checkpoint databases kept outside inspected repositories; and
+- completed state and super-step history retained across graph reopen.
 
-SQLite checkpoints, resume, retained checkpoint history, time-travel forks, and
-replay protection remain to be implemented.
+Safe resume, user-facing history queries, time-travel forks, and complete replay
+protection remain to be implemented. Until resume exists, the new-run CLI rejects
+thread IDs with existing checkpoint history.
 
 ## Phase 3: Human-Reviewed Recommendations and Corrections
 

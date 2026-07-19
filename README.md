@@ -29,6 +29,7 @@ The initial release focuses on:
 - Complete tool-call tracing
 - Stable run identity and explicit lifecycle stages
 - Agent-Ops and target-repository version provenance
+- Durable local SQLite checkpoints and retained graph history
 
 Failure classification is deterministic and local-first. Explicit execution
 signals first produce broad outcomes, then high-confidence markers refine
@@ -81,6 +82,32 @@ Agent-Ops creates a run ID by default. An external orchestrator may assign one:
 ```bash
 python -m agent_ops /path/to/repository --run-id <uuid>
 ```
+
+## Durable Checkpoints
+
+Every CLI run uses its run UUID as the LangGraph thread ID and saves graph state at
+each super-step in a local SQLite database. By default the database is stored at:
+
+```text
+$AGENT_OPS_HOME/checkpoints.sqlite3
+```
+
+When `AGENT_OPS_HOME` is not set, Agent-Ops uses
+`~/.agent-ops/checkpoints.sqlite3`. A different location can be selected explicitly:
+
+```bash
+python -m agent_ops /path/to/repository \
+  --checkpoint-db /path/outside/repository/checkpoints.sqlite3
+```
+
+Checkpoint databases are rejected when they are inside the repository being
+inspected. This preserves read-only target inspection and prevents the database from
+changing its own repository snapshot. On POSIX systems, newly opened database files
+are restricted to the current user.
+
+Completed state and super-step history survive process restarts. Safe resume and
+time-travel commands are not implemented yet; until they are, the CLI rejects a run
+ID that already has checkpoint history rather than silently replaying it.
 
 ## Deterministic Evaluation
 
@@ -141,9 +168,9 @@ versioning, and promotion controls in the
 ## Target Direction
 
 Later phases may add evidence-supported recommendations, human-approved candidate
-corrections, sandbox verification, persistent checkpoints, streaming, expanded
-artifact analysis, and optional specialist agents. These capabilities will be added
-only after their safety and evaluation contracts are established.
+corrections, sandbox verification, checkpoint resume and time travel, streaming,
+expanded artifact analysis, and optional specialist agents. These capabilities will
+be added only after their safety and evaluation contracts are established.
 
 ## Design Documentation
 
