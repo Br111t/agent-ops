@@ -37,6 +37,7 @@ The coordinating-agent decision is recorded in
 ```mermaid
 flowchart TD
     CLI[CLI] --> Graph[Diagnostic graph]
+    Graph --> Report[Diagnostic report]
     Graph --> Repo[Repository inspection]
     Graph --> Tools[Approved test tools]
     Graph --> Analysis[Evidence analysis]
@@ -49,8 +50,9 @@ flowchart TD
 ### Command-line interface
 
 `agent_ops.cli` parses the repository path and the explicit `--run-tests` option,
-invokes the compiled graph, and serializes the supported result fields as JSON.
-The default path does not run tests.
+invokes the compiled graph, builds an immutable public diagnostic report, and
+serializes the supported result fields as JSON. Optional report sections are emitted
+only when the graph produced them. The default path does not run tests.
 
 ### Workflow orchestration
 
@@ -112,14 +114,16 @@ testable.
 
 `agent_ops.models` contains immutable Pydantic models for repository profiles,
 framework detection, execution evidence, parsed summaries, normalized evidence,
-and failure classifications. Models forbid unexpected fields where the schema is
-controlled and validate counts, durations, and confidence ranges.
+failure classifications, and the public diagnostic report. Models forbid unexpected
+fields where the schema is controlled and validate counts, durations, and confidence
+ranges.
 
 ### Evaluation
 
-`agent_ops.evaluation` and `evals/` are reserved for the evaluation harness. The
-initial implementation will compare deterministic classifications with versioned
-reference cases. Evaluation is described in
+`agent_ops.evaluation` contains the deterministic evaluation runner and metric
+functions. `evals/` contains the versioned reference dataset and executable local
+entry point. The initial baseline measures classification, abstention, evidence,
+latency, and category confusion without external services. Evaluation is described in
 [`repository_aware_evaluation.md`](repository_aware_evaluation.md).
 
 ## State and Evidence Boundaries

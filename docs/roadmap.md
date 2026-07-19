@@ -12,7 +12,7 @@ documentation are complete.
 
 ## Phase 0: Diagnostic Foundation
 
-**Status:** In progress
+**Status:** Complete
 
 Implemented foundations include:
 
@@ -23,17 +23,14 @@ Implemented foundations include:
 - pytest result parsing;
 - local evidence extraction and normalization;
 - deterministic failure classification; and
-- single-workflow LangGraph orchestration.
-
-Remaining foundation work:
-
-- expose the supported classification and diagnostic report through the public
-  result contract;
-- complete structured reporting without removing raw evidence;
-- preserve backward compatibility through CLI serialization tests; and
-- keep full-suite and Ruff validation green.
+- single-workflow LangGraph orchestration;
+- an immutable public diagnostic report that retains raw evidence;
+- additive classification and normalized-evidence CLI output; and
+- backward-compatible CLI serialization tests for every graph route.
 
 ## Phase 1: Evaluation Baseline
+
+**Status:** In progress
 
 **Goal:** Measure the diagnostic system before adding model-assisted analysis or
 greater autonomy.
@@ -47,6 +44,15 @@ Deliverables:
 - baseline and candidate experiment comparison;
 - machine-readable evaluation reports; and
 - documented dataset provenance and sanitization.
+
+Implemented evaluation foundations include versioned classification cases,
+immutable case and report models, category and evidence metrics, abstention checks,
+latency capture, per-category results, a confusion matrix, and machine-readable JSON
+output.
+
+Remaining evaluation work includes baseline-versus-candidate comparison, explicit
+schema and command-safety gates, reproducible system-version provenance, and
+documented dataset sanitization and promotion procedures.
 
 LLM-as-a-judge evaluation is not required in this phase. The deterministic
 evaluation decision is recorded in
