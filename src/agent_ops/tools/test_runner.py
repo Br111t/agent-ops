@@ -1,5 +1,6 @@
 """Controlled execution of approved repository test commands."""
 
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -41,6 +42,9 @@ def execute_approved_tests(
             runtime_command,
             cwd=root_path,
             capture_output=True,
+            encoding="utf-8",
+            errors="replace",
+            env=_build_runtime_environment(),
             text=True,
             timeout=timeout_seconds,
             check=False,
@@ -70,12 +74,19 @@ def execute_approved_tests(
     )
 
 
+def _build_runtime_environment() -> dict[str, str]:
+    """Return an inherited environment with deterministic Python stream encoding."""
+    environment = os.environ.copy()
+    environment["PYTHONIOENCODING"] = "utf-8"
+    return environment
+
+
 def _as_text(value: str | bytes | None) -> str:
     """Normalize subprocess output into text."""
     if value is None:
         return ""
 
     if isinstance(value, bytes):
-        return value.decode(errors="replace")
+        return value.decode(encoding="utf-8", errors="replace")
 
     return value

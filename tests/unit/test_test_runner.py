@@ -31,6 +31,7 @@ def test_execute_approved_tests_captures_result(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Approved test execution should capture process evidence."""
+    monkeypatch.setenv("PYTHONIOENCODING", "cp1252")
     completed_process = subprocess.CompletedProcess(
         args=["python", "-m", "pytest", "-q"],
         returncode=0,
@@ -38,11 +39,13 @@ def test_execute_approved_tests_captures_result(
         stderr="",
     )
 
-    monkeypatch.setattr(
-        subprocess,
-        "run",
-        lambda *args, **kwargs: completed_process,
-    )
+    def capture_run(*args: object, **kwargs: object) -> subprocess.CompletedProcess[str]:
+        assert kwargs["encoding"] == "utf-8"
+        assert kwargs["errors"] == "replace"
+        assert kwargs["env"]["PYTHONIOENCODING"] == "utf-8"
+        return completed_process
+
+    monkeypatch.setattr(subprocess, "run", capture_run)
 
     result = execute_approved_tests(
         tmp_path,
