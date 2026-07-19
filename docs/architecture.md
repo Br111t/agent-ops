@@ -44,7 +44,7 @@ flowchart TD
     Repo --> Models[Pydantic models]
     Tools --> Models
     Analysis --> Models
-    Tools --> Policy[Inline command and path checks]
+    Tools --> Policy[Central command policy]
 ```
 
 ### Command-line interface
@@ -90,9 +90,16 @@ one can be selected safely.
 
 `agent_ops.tools` executes the approved command and captures its command tuple,
 exit code, standard output, standard error, duration, and timeout state.
-The current test runner performs command and repository-path checks directly.
-`agent_ops.safety.py` is reserved for central policy modules as the tool surface
-grows. Arbitrary shell strings are not part of the execution contract.
+`agent_ops.safety` owns the exact framework-and-command allowlist used by framework
+detection, the execution boundary, and offline safety evaluation. The test runner
+requires a successful policy decision before constructing the runtime command or
+calling `subprocess.run`. Repository-path validation remains at the execution
+boundary. Arbitrary shell strings are not part of the execution contract.
+
+The versioned command-safety corpus exercises the policy without launching any
+subprocess. It includes the one currently approved pytest tuple alongside missing,
+modified, shell-mediated, and unsupported-framework commands. Any incorrect policy
+decision fails the command-safety evaluation gate.
 
 The command decision is recorded in
 [`decisions/002-approved-commands-only.md`](decisions/002-approved-commands-only.md).

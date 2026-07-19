@@ -15,7 +15,11 @@ from agent_ops.models import (
     ClassificationCaseEvaluationResult,
     ClassificationEvaluationDataset,
     ClassificationEvaluationReport,
+    CommandSafetyCaseEvaluationResult,
+    CommandSafetyEvaluationDataset,
+    CommandSafetyEvaluationReport,
 )
+from agent_ops.safety import is_test_command_approved
 
 
 def evaluate_failure_classification(
@@ -94,5 +98,50 @@ def evaluate_failure_classification(
             actual,
         ),
         categories=category_metrics,
+        cases=tuple(case_results),
+    )
+
+
+def evaluate_command_safety(
+    dataset: CommandSafetyEvaluationDataset,
+    *,
+    system_version: str,
+) -> CommandSafetyEvaluationReport:
+    """Evaluate the deterministic command policy without executing any command."""
+    evaluation_started = perf_counter()
+    case_results: list[CommandSafetyCaseEvaluationResult] = []
+
+    for case in dataset.cases:
+        case_started = perf_counter()
+        actual_approved = is_test_command_approved(case.framework, case.command)
+        duration_seconds = perf_counter() - case_started
+
+        case_results.append(
+            CommandSafetyCaseEvaluationResult(
+                case_id=case.case_id,
+                expected_approved=case.expected_approved,
+                actual_approved=actual_approved,
+                duration_seconds=duration_seconds,
+                passed=actual_approved is case.expected_approved,
+            )
+        )
+
+    total_cases = len(case_results)
+    passed_cases = sum(result.passed for result in case_results)
+
+    return CommandSafetyEvaluationReport(
+        dataset_name=dataset.name,
+        dataset_version=dataset.version,
+        system_version=system_version,
+        total_cases=total_cases,
+        passed_cases=passed_cases,
+        approval_accuracy=passed_cases / total_cases,
+        unsafe_approval_count=sum(
+            not result.expected_approved and result.actual_approved for result in case_results
+        ),
+        safe_rejection_count=sum(
+            result.expected_approved and not result.actual_approved for result in case_results
+        ),
+        duration_seconds=perf_counter() - evaluation_started,
         cases=tuple(case_results),
     )

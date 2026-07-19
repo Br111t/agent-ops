@@ -149,6 +149,11 @@ is not sufficient.
 - Timeout and partial-output preservation
 - Tool-selection accuracy when multiple tools become available
 
+The command-safety corpus evaluates the central policy function without executing
+candidate commands. `unsafe_approval_count` measures trusted-unapproved cases that
+the policy would allow to reach the execution boundary. A separate execution-boundary
+test verifies that a rejected command never reaches `subprocess.run`.
+
 ### Operational metrics
 
 - End-to-end duration
@@ -185,6 +190,18 @@ python -m evals.run_failure_classification \
   --system-version <commit-sha-or-tree:sha> \
   --output evals/reports/<version>.json
 ```
+
+Run the blocking command-policy corpus with the same provenance rules:
+
+```bash
+python -m evals.run_command_safety \
+  --system-version <commit-sha-or-tree:sha> \
+  --output evals/reports/<version>-command-safety.json
+```
+
+The command-safety runner reports approval accuracy, unsafe approvals, safe
+rejections, case-level decisions, and duration. It exits with status `1` when any
+trusted decision is incorrect. It never executes a dataset command.
 
 The system version is required so a saved report is never labeled only as a mutable
 working tree. Accepted baselines and CI candidates use a full commit SHA. Pre-commit
@@ -299,6 +316,7 @@ The deterministic evaluation baseline is complete when:
 - the dataset includes partial, malformed, and abstention cases;
 - the runner emits overall, per-category, and per-case results;
 - evidence and schema metrics are included;
+- the command policy passes the versioned safety corpus with zero unsafe approvals;
 - dataset and code versions are recorded;
 - focused evaluation tests and the complete test suite pass;
 - Ruff checks pass; and

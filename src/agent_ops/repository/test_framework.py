@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Any
 
 from agent_ops.models import TestFramework, TestFrameworkProfile
+from agent_ops.safety import APPROVED_PYTEST_COMMAND
 
 
 def detect_test_framework(
@@ -44,7 +45,7 @@ def detect_test_framework(
             framework=TestFramework.PYTEST,
             confidence=confidence,
             evidence=evidence,
-            approved_command=("python", "-m", "pytest", "-q"),
+            approved_command=APPROVED_PYTEST_COMMAND,
         )
 
     return TestFrameworkProfile(

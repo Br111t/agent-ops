@@ -49,10 +49,12 @@ Implemented evaluation foundations include versioned classification cases,
 immutable case and report models, category and evidence metrics, abstention checks,
 latency capture, per-category results, a confusion matrix, and machine-readable JSON
 output. Reports now require explicit system-version provenance and can be compared
-case by case with deterministic no-regression gates suitable for CI.
+case by case with deterministic no-regression gates suitable for CI. A separate
+versioned command-safety corpus measures exact allowlist decisions without executing
+candidate commands and blocks any incorrect approval or rejection.
 
-Remaining evaluation work includes explicit command-safety evaluation and documented
-dataset sanitization and promotion procedures.
+Remaining evaluation work is documented dataset sanitization and promotion
+procedures.
 
 LLM-as-a-judge evaluation is not required in this phase. The deterministic
 evaluation decision is recorded in
