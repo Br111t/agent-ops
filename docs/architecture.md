@@ -134,7 +134,9 @@ latency, and category confusion without external services. Validated reports can
 written as JSON and compared across immutable system versions. The comparison layer
 records per-case regressions and improvements, metric deltas, and a deterministic
 no-regression gate. Evaluation is described in
-[`repository_aware_evaluation.md`](repository_aware_evaluation.md).
+[`repository_aware_evaluation.md`](repository_aware_evaluation.md). Dataset admission,
+sanitization, trusted labeling, versioning, and promotion are governed by
+[`evaluation-dataset-governance.md`](evaluation-dataset-governance.md).
 
 ## State and Evidence Boundaries
 

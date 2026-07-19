@@ -58,18 +58,22 @@ acceptable for the initial small corpus. As the corpus grows, a versioned JSONL
 format should be preferred so data can evolve independently of executable code
 without adding a parsing dependency.
 
+Raw evidence is never promoted directly. Candidate evidence follows the sourcing,
+sanitization, labeling, review, versioning, and incident procedures in
+[`evaluation-dataset-governance.md`](evaluation-dataset-governance.md). The current
+classification and command-safety corpora are synthetic version `1.0.0` datasets.
+
 A classification case should contain at least:
 
 ```python
 class ClassificationEvaluationCase(BaseModel):
     case_id: str
-    dataset_version: str
     source_type: Literal["synthetic", "sanitized_real", "regression"]
     description: str
     framework_profile: TestFrameworkProfile
     normalized_evidence: NormalizedExecutionEvidence | None
     expected_category: FailureCategory
-    expected_evidence_markers: tuple[str, ...] = ()
+    required_evidence_markers: tuple[str, ...] = ()
     forbidden_evidence_markers: tuple[str, ...] = ()
     expected_abstention: bool = False
     notes: str | None = None
@@ -318,6 +322,8 @@ The deterministic evaluation baseline is complete when:
 - evidence and schema metrics are included;
 - the command policy passes the versioned safety corpus with zero unsafe approvals;
 - dataset and code versions are recorded;
+- dataset provenance, sanitization, trusted labeling, and promotion follow the
+  documented governance policy;
 - focused evaluation tests and the complete test suite pass;
 - Ruff checks pass; and
 - the baseline report is reproducible from documented commands.

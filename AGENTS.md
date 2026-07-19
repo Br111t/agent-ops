@@ -22,7 +22,8 @@ During an active discussion, newer code, diffs, or corrections supplied by the u
 
 ## Current Development Phase
 
-The current phase focuses on:
+The deterministic diagnostic foundation and Phase 1 evaluation baseline are
+complete. Implemented foundations include:
 
 * Repository discovery and inspection
 * Test-framework detection
@@ -33,9 +34,14 @@ The current phase focuses on:
 * Diagnostic report generation
 * Reproducible deterministic evaluation reports
 * Baseline-versus-candidate regression gates
+* Versioned command-safety evaluation
+* Evaluation dataset sanitization and promotion governance
 * Traceable tool activity
 
-Do not assume that planned features already exist.
+The next planned implementation phase is durable diagnostic runs: stable run IDs,
+repository and version provenance, SQLite-backed checkpoints, explicit lifecycle
+models, safe resume, checkpoint history, time-travel forks, and replay protection.
+Do not assume that these planned features already exist.
 
 Planned later capabilities may include:
 
@@ -206,6 +212,25 @@ python -m pytest
 ```
 
 Do not state that validation passed unless the commands were actually executed and their results were observed.
+
+## Evaluation Dataset Changes
+
+Before adding, modifying, promoting, or removing an evaluation case, follow
+[`docs/evaluation-dataset-governance.md`](docs/evaluation-dataset-governance.md).
+
+Dataset changes must:
+
+* Prefer synthetic evidence when it can represent the behavior faithfully.
+* Never copy unapproved workplace, customer, or private-repository material into Git.
+* Keep raw real-world evidence and source-to-placeholder mappings outside the repository.
+* Record a stable case ID, source type, non-identifying description, and independent expectation.
+* Sanitize authorized real evidence before it enters the working tree.
+* Preserve the intended failure signal without retaining unrelated sensitive context.
+* Increment the dataset version for behavioral, membership, label, or ordering changes.
+* Regenerate the accepted baseline from the merge commit after promotion.
+
+Automated secret or pattern scans may support review, but they do not replace manual
+sanitization and provenance review.
 
 ## Python Standards
 
