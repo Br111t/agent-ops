@@ -224,9 +224,7 @@ def test_classify_result_node_returns_classification() -> None:
         category=FailureCategory.TEST_FAILURE,
         confidence=0.99,
         evidence=("Parsed output reported 1 failed test(s).",),
-        recommended_next_step=(
-            "Inspect assertion messages and affected test cases."
-        ),
+        recommended_next_step=("Inspect assertion messages and affected test cases."),
     )
 
     with patch(

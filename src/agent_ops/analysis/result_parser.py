@@ -12,9 +12,7 @@ _COUNT_PATTERN = re.compile(
     r")\b"
 )
 
-_TEST_NODE_PATTERN = re.compile(
-    r"^(?P<status>FAILED|ERROR)\s+(?P<node_id>\S+)"
-)
+_TEST_NODE_PATTERN = re.compile(r"^(?P<status>FAILED|ERROR)\s+(?P<node_id>\S+)")
 
 _STATUS_FIELDS = {
     "passed": "passed",
@@ -61,9 +59,7 @@ def parse_pytest_result(
             field_name = _STATUS_FIELDS[match.group("status")]
             counts[field_name] = int(match.group("count"))
 
-    failed_tests, error_tests = _extract_test_nodes(
-        combined_output
-    )
+    failed_tests, error_tests = _extract_test_nodes(combined_output)
 
     return TestResultSummary(
         summary_found=summary_line is not None,
@@ -111,11 +107,7 @@ def _extract_test_nodes(
         node_id = match.group("node_id")
         status = match.group("status")
 
-        target = (
-            failed_tests
-            if status == "FAILED"
-            else error_tests
-        )
+        target = failed_tests if status == "FAILED" else error_tests
 
         if node_id not in target:
             target.append(node_id)

@@ -20,9 +20,7 @@ class FailureCategory(StrEnum):
     FIXTURE_SETUP_ERROR = "fixture_setup_error"
     IMPORT_ERROR = "import_error"
     ASSERTION_FAILURE = "assertion_failure"
-    BROWSER_OR_ENVIRONMENT_FAILURE = (
-        "browser_or_environment_failure"
-    )
+    BROWSER_OR_ENVIRONMENT_FAILURE = "browser_or_environment_failure"
     TEST_DATA_FAILURE = "test_data_failure"
     APPLICATION_FAILURE = "application_failure"
 

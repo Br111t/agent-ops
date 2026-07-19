@@ -29,14 +29,10 @@ def execute_approved_tests(
     root_path = Path(repository_path).expanduser().resolve()
 
     if not root_path.exists():
-        raise FileNotFoundError(
-            f"Repository path does not exist: {root_path}"
-        )
+        raise FileNotFoundError(f"Repository path does not exist: {root_path}")
 
     if not root_path.is_dir():
-        raise NotADirectoryError(
-            f"Repository path is not a directory: {root_path}"
-        )
+        raise NotADirectoryError(f"Repository path is not a directory: {root_path}")
 
     approved_command = framework_profile.approved_command
 
@@ -44,9 +40,7 @@ def execute_approved_tests(
         framework_profile.framework is not TestFramework.PYTEST
         or approved_command != APPROVED_PYTEST_COMMAND
     ):
-        raise ValueError(
-            "Test command is not approved for execution."
-        )
+        raise ValueError("Test command is not approved for execution.")
 
     runtime_command = (
         sys.executable,

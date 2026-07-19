@@ -53,12 +53,8 @@ def test_parse_pytest_result_reads_failures_and_errors() -> None:
     assert result.skipped == 1
     assert result.warnings == 2
     assert result.total_tests == 4
-    assert result.failed_tests == (
-        "tests/test_math.py::test_add",
-    )
-    assert result.error_tests == (
-        "tests/test_api.py::test_client",
-    )
+    assert result.failed_tests == ("tests/test_math.py::test_add",)
+    assert result.error_tests == ("tests/test_api.py::test_client",)
 
 
 def test_parse_pytest_result_handles_partial_output() -> None:

@@ -25,10 +25,7 @@ def route_after_framework_detection(
     if not state["run_tests"]:
         return "skip"
 
-    if (
-        state["framework_profile"].framework
-        is TestFramework.UNKNOWN
-    ):
+    if state["framework_profile"].framework is TestFramework.UNKNOWN:
         return "classify"
 
     return "execute"

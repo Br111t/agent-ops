@@ -24,4 +24,3 @@ class AgentOpsState(TypedDict):
     test_summary: NotRequired[TestResultSummary]
     normalized_evidence: NotRequired[NormalizedExecutionEvidence]
     classification: NotRequired[FailureClassification]
-

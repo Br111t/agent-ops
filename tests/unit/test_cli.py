@@ -81,12 +81,8 @@ def test_cli_does_not_run_tests_by_default(
         }
     )
 
-    assert output["repository"] == repository_profile.model_dump(
-        mode="json"
-    )
-    assert output["test_framework"] == framework_profile.model_dump(
-        mode="json"
-    )
+    assert output["repository"] == repository_profile.model_dump(mode="json")
+    assert output["test_framework"] == framework_profile.model_dump(mode="json")
     assert "test_execution" not in output
 
 
@@ -138,12 +134,8 @@ def test_cli_runs_tests_when_explicitly_requested(
         }
     )
 
-    assert output["repository"] == repository_profile.model_dump(
-        mode="json"
-    )
-    assert output["test_framework"] == framework_profile.model_dump(
-        mode="json"
-    )
+    assert output["repository"] == repository_profile.model_dump(mode="json")
+    assert output["test_framework"] == framework_profile.model_dump(mode="json")
     assert output["test_execution"]["exit_code"] == 0
     assert output["test_execution"]["succeeded"] is True
     assert output["test_execution"]["summary"]["passed"] == 11

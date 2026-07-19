@@ -21,10 +21,7 @@ from agent_ops.models import (
 
 def test_foundation_dataset_covers_every_failure_category() -> None:
     """The first dataset should represent every public category."""
-    represented = {
-        case.expected_category
-        for case in FAILURE_CLASSIFICATION_DATASET.cases
-    }
+    represented = {case.expected_category for case in FAILURE_CLASSIFICATION_DATASET.cases}
 
     assert represented == set(FailureCategory)
 
@@ -36,9 +33,7 @@ def test_foundation_dataset_matches_current_classifier() -> None:
         system_version="test-version",
     )
 
-    assert report.total_cases == len(
-        FAILURE_CLASSIFICATION_DATASET.cases
-    )
+    assert report.total_cases == len(FAILURE_CLASSIFICATION_DATASET.cases)
     assert report.passed_cases == report.total_cases
     assert report.category_accuracy == 1.0
     assert report.abstention_accuracy == 1.0

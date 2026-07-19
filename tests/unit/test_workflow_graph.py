@@ -121,9 +121,7 @@ def test_graph_executes_and_parses_when_tests_requested() -> None:
             "The approved test command exited with code 0.",
             "No test failures or errors were reported.",
         ),
-        recommended_next_step=(
-            "Continue with reporting or additional diagnostic checks."
-        ),
+        recommended_next_step=("Continue with reporting or additional diagnostic checks."),
     )
 
     with (
@@ -168,6 +166,7 @@ def test_graph_executes_and_parses_when_tests_requested() -> None:
     assert result["normalized_evidence"] == normalized_evidence
     assert result["classification"] == classification
 
+
 def test_graph_classifies_unknown_framework_without_execution() -> None:
     """Unknown frameworks should be classified without running tests."""
 
@@ -189,12 +188,8 @@ def test_graph_classifies_unknown_framework_without_execution() -> None:
     classification = FailureClassification(
         category=FailureCategory.UNSUPPORTED_FRAMEWORK,
         confidence=1.0,
-        evidence=(
-            "Framework detection returned an unknown framework.",
-        ),
-        missing_evidence=(
-            "No approved test command is available.",
-        ),
+        evidence=("Framework detection returned an unknown framework.",),
+        missing_evidence=("No approved test command is available.",),
         recommended_next_step=(
             "Add support for the repository's test framework "
             "or provide an approved execution strategy."

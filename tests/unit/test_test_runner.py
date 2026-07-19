@@ -89,6 +89,7 @@ def test_execute_approved_tests_records_timeout(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """A timeout should return structured evidence."""
+
     def raise_timeout(*args: object, **kwargs: object) -> None:
         raise subprocess.TimeoutExpired(
             cmd=["python", "-m", "pytest", "-q"],

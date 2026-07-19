@@ -30,11 +30,4 @@ class TestResultSummary(BaseModel):
     @property
     def total_tests(self) -> int:
         """Return the number of tests represented by test outcomes."""
-        return (
-            self.passed
-            + self.failed
-            + self.errors
-            + self.skipped
-            + self.xfailed
-            + self.xpassed
-        )
+        return self.passed + self.failed + self.errors + self.skipped + self.xfailed + self.xpassed

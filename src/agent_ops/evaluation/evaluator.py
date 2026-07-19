@@ -34,9 +34,7 @@ def evaluate_failure_classification(
             case.normalized_evidence,
         )
         duration_seconds = perf_counter() - case_started
-        actual_abstention = is_abstention_category(
-            classification.category
-        )
+        actual_abstention = is_abstention_category(classification.category)
         evidence_coverage = calculate_evidence_coverage(
             classification.evidence,
             case.required_evidence_markers,
@@ -45,16 +43,9 @@ def evaluate_failure_classification(
             classification.evidence,
             case.forbidden_evidence_markers,
         )
-        category_correct = (
-            classification.category is case.expected_category
-        )
-        abstention_correct = (
-            actual_abstention is case.expected_abstention
-        )
-        evidence_correct = (
-            evidence_coverage == 1.0
-            and unsupported_evidence_count == 0
-        )
+        category_correct = classification.category is case.expected_category
+        abstention_correct = actual_abstention is case.expected_abstention
+        evidence_correct = evidence_coverage == 1.0 and unsupported_evidence_count == 0
 
         case_results.append(
             ClassificationCaseEvaluationResult(
@@ -66,35 +57,21 @@ def evaluate_failure_classification(
                 actual_abstention=actual_abstention,
                 abstention_correct=abstention_correct,
                 evidence_coverage=evidence_coverage,
-                unsupported_evidence_count=(
-                    unsupported_evidence_count
-                ),
+                unsupported_evidence_count=(unsupported_evidence_count),
                 evidence_correct=evidence_correct,
                 confidence=classification.confidence,
                 duration_seconds=duration_seconds,
-                passed=(
-                    category_correct
-                    and abstention_correct
-                    and evidence_correct
-                ),
+                passed=(category_correct and abstention_correct and evidence_correct),
             )
         )
 
-    expected = tuple(
-        case.expected_category
-        for case in dataset.cases
-    )
-    actual = tuple(
-        result.actual_category
-        for result in case_results
-    )
+    expected = tuple(case.expected_category for case in dataset.cases)
+    actual = tuple(result.actual_category for result in case_results)
     category_metrics = calculate_category_metrics(
         expected,
         actual,
     )
-    macro_precision, macro_recall, macro_f1 = (
-        calculate_macro_metrics(category_metrics)
-    )
+    macro_precision, macro_recall, macro_f1 = calculate_macro_metrics(category_metrics)
     total_cases = len(case_results)
 
     return ClassificationEvaluationReport(
@@ -103,18 +80,11 @@ def evaluate_failure_classification(
         system_version=system_version,
         total_cases=total_cases,
         passed_cases=sum(result.passed for result in case_results),
-        category_accuracy=(
-            sum(result.category_correct for result in case_results)
-            / total_cases
-        ),
+        category_accuracy=(sum(result.category_correct for result in case_results) / total_cases),
         abstention_accuracy=(
-            sum(result.abstention_correct for result in case_results)
-            / total_cases
+            sum(result.abstention_correct for result in case_results) / total_cases
         ),
-        evidence_accuracy=(
-            sum(result.evidence_correct for result in case_results)
-            / total_cases
-        ),
+        evidence_accuracy=(sum(result.evidence_correct for result in case_results) / total_cases),
         macro_precision=macro_precision,
         macro_recall=macro_recall,
         macro_f1=macro_f1,

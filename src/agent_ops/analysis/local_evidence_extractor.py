@@ -7,9 +7,7 @@ from agent_ops.models import (
     TestExecutionResult,
 )
 
-_ANSI_ESCAPE_PATTERN = re.compile(
-    r"\x1b\[[0-?]*[ -/]*[@-~]"
-)
+_ANSI_ESCAPE_PATTERN = re.compile(r"\x1b\[[0-?]*[ -/]*[@-~]")
 
 _EXCEPTION_TYPE = r"[A-Za-z_][\w.]*(?:Error|Exception)"
 _WARNING_TYPE = r"[A-Za-z_][\w.]*Warning"
@@ -25,9 +23,7 @@ _SHORT_SUMMARY_EXCEPTION_PATTERN = re.compile(
     r"(?::\s*(?P<message>.*))?$"
 )
 
-_ASSERTION_PATTERN = re.compile(
-    r"^E\s+(?P<message>assert\b.*)$"
-)
+_ASSERTION_PATTERN = re.compile(r"^E\s+(?P<message>assert\b.*)$")
 
 _WARNING_PATTERN = re.compile(
     rf"^(?:(?:[A-Za-z]:)?[^:\n]+\.py:\d+:\s+)?"
@@ -70,10 +66,7 @@ def extract_local_evidence(
         if not line:
             continue
 
-        frame_match = (
-            _PYTEST_FRAME_PATTERN.match(line)
-            or _PYTHON_FRAME_PATTERN.match(line)
-        )
+        frame_match = _PYTEST_FRAME_PATTERN.match(line) or _PYTHON_FRAME_PATTERN.match(line)
 
         if frame_match is not None:
             _append_unique(
@@ -85,8 +78,7 @@ def extract_local_evidence(
 
         if warning_match is not None:
             warning_message = (
-                f"{warning_match.group('type')}: "
-                f"{warning_match.group('message').strip()}"
+                f"{warning_match.group('type')}: {warning_match.group('message').strip()}"
             )
             _append_unique(
                 warning_messages,
@@ -102,10 +94,9 @@ def extract_local_evidence(
                 assertion_match.group("message").strip(),
             )
 
-        exception_match = (
-            _SHORT_SUMMARY_EXCEPTION_PATTERN.match(line)
-            or _DIRECT_EXCEPTION_PATTERN.match(line)
-        )
+        exception_match = _SHORT_SUMMARY_EXCEPTION_PATTERN.match(
+            line
+        ) or _DIRECT_EXCEPTION_PATTERN.match(line)
 
         if exception_match is None:
             continue
@@ -115,11 +106,7 @@ def extract_local_evidence(
 
         message = exception_match.group("message")
 
-        if (
-            exception_type.rsplit(".", maxsplit=1)[-1]
-            == "AssertionError"
-            and message
-        ):
+        if exception_type.rsplit(".", maxsplit=1)[-1] == "AssertionError" and message:
             _append_unique(
                 assertion_messages,
                 message.strip(),
