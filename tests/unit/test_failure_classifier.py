@@ -208,12 +208,8 @@ def test_classify_failure_detects_unsupported_framework() -> None:
                 passed=0,
                 errors=1,
                 summary_line="1 error in 0.10s",
-                exception_types=(
-                    "playwright._impl._errors.TimeoutError",
-                ),
-                traceback_files=(
-                    "site-packages/playwright/_impl/_connection.py",
-                ),
+                exception_types=("playwright._impl._errors.TimeoutError",),
+                traceback_files=("site-packages/playwright/_impl/_connection.py",),
             ),
             FailureCategory.BROWSER_OR_ENVIRONMENT_FAILURE,
             0.95,

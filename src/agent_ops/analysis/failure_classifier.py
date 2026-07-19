@@ -67,12 +67,8 @@ def classify_failure(
         return FailureClassification(
             category=FailureCategory.UNSUPPORTED_FRAMEWORK,
             confidence=1.0,
-            evidence=(
-                "Framework detection returned an unknown framework.",
-            ),
-            missing_evidence=(
-                "No approved test command is available.",
-            ),
+            evidence=("Framework detection returned an unknown framework.",),
+            missing_evidence=("No approved test command is available.",),
             recommended_next_step=(
                 "Add support for the repository's test framework "
                 "or provide an approved execution strategy."
@@ -83,33 +79,22 @@ def classify_failure(
         return FailureClassification(
             category=FailureCategory.UNKNOWN,
             confidence=0.25,
-            evidence=(
-                "No normalized execution evidence was provided.",
-            ),
-            missing_evidence=(
-                "Execution metadata and parsed test results are missing.",
-            ),
-            recommended_next_step=(
-                "Run the approved test command and normalize its output."
-            ),
+            evidence=("No normalized execution evidence was provided.",),
+            missing_evidence=("Execution metadata and parsed test results are missing.",),
+            recommended_next_step=("Run the approved test command and normalize its output."),
         )
 
     evidence = normalized_evidence
 
     if evidence.timed_out:
         missing_evidence = (
-            ()
-            if evidence.summary_found
-            else ("A complete test summary was not available.",)
+            () if evidence.summary_found else ("A complete test summary was not available.",)
         )
 
         return FailureClassification(
             category=FailureCategory.TIMEOUT,
             confidence=1.0,
-            evidence=(
-                "Execution timed out after "
-                f"{evidence.duration_seconds:.3f} seconds.",
-            ),
+            evidence=(f"Execution timed out after {evidence.duration_seconds:.3f} seconds.",),
             missing_evidence=missing_evidence,
             recommended_next_step=(
                 "Inspect the hanging test or increase the timeout "
@@ -121,12 +106,9 @@ def classify_failure(
         return FailureClassification(
             category=FailureCategory.NO_TESTS,
             confidence=1.0,
-            evidence=(
-                evidence.summary_line or "Pytest reported no tests.",
-            ),
+            evidence=(evidence.summary_line or "Pytest reported no tests.",),
             recommended_next_step=(
-                "Verify test discovery paths, naming conventions, "
-                "and pytest configuration."
+                "Verify test discovery paths, naming conventions, and pytest configuration."
             ),
         )
 
@@ -148,8 +130,7 @@ def classify_failure(
                 "or browser/environment marker was found.",
             ),
             recommended_next_step=(
-                "Inspect collection, setup, fixture, import, "
-                "or environment errors."
+                "Inspect collection, setup, fixture, import, or environment errors."
             ),
         )
 
@@ -170,16 +151,12 @@ def classify_failure(
                 "No deterministic assertion, test-data, application, "
                 "or browser/environment marker was found.",
             ),
-            recommended_next_step=(
-                "Inspect the affected test cases and captured output."
-            ),
+            recommended_next_step=("Inspect the affected test cases and captured output."),
         )
 
     if evidence.exit_code == 0:
         missing_evidence = (
-            ()
-            if evidence.summary_found
-            else ("A recognizable test summary was not found.",)
+            () if evidence.summary_found else ("A recognizable test summary was not found.",)
         )
 
         return FailureClassification(
@@ -190,16 +167,10 @@ def classify_failure(
                 "No test failures or errors were reported.",
             ),
             missing_evidence=missing_evidence,
-            recommended_next_step=(
-                "Continue with reporting or additional diagnostic checks."
-            ),
+            recommended_next_step=("Continue with reporting or additional diagnostic checks."),
         )
 
-    if (
-        evidence.exit_code is not None
-        and evidence.exit_code != 0
-        and not evidence.summary_found
-    ):
+    if evidence.exit_code is not None and evidence.exit_code != 0 and not evidence.summary_found:
         return FailureClassification(
             category=FailureCategory.UNPARSED_FAILURE,
             confidence=0.85,
@@ -207,9 +178,7 @@ def classify_failure(
                 f"The test command exited with code {evidence.exit_code}.",
                 "No recognizable test summary was found.",
             ),
-            missing_evidence=(
-                "Parsed failure counts and test identifiers are unavailable.",
-            ),
+            missing_evidence=("Parsed failure counts and test identifiers are unavailable.",),
             recommended_next_step=(
                 "Inspect captured stdout and stderr and extend "
                 "the local parser for this output format."
@@ -219,15 +188,9 @@ def classify_failure(
     return FailureClassification(
         category=FailureCategory.UNKNOWN,
         confidence=0.25,
-        evidence=(
-            "The available evidence did not match a deterministic rule.",
-        ),
-        missing_evidence=(
-            "A decisive exit status or recognizable summary is missing.",
-        ),
-        recommended_next_step=(
-            "Collect additional local execution evidence before escalation."
-        ),
+        evidence=("The available evidence did not match a deterministic rule.",),
+        missing_evidence=("A decisive exit status or recognizable summary is missing.",),
+        recommended_next_step=("Collect additional local execution evidence before escalation."),
     )
 
 
@@ -250,15 +213,12 @@ def _classify_test_error(
                 for exception_type in import_exceptions
             ),
             recommended_next_step=(
-                "Verify dependency installation, module paths, "
-                "and import configuration."
+                "Verify dependency installation, module paths, and import configuration."
             ),
         )
 
     collection_nodes = tuple(
-        node_id
-        for node_id in evidence.error_tests
-        if node_id.lower().startswith("collecting")
+        node_id for node_id in evidence.error_tests if node_id.lower().startswith("collecting")
     )
 
     if collection_nodes:
@@ -270,8 +230,7 @@ def _classify_test_error(
                 *collection_nodes,
             ),
             recommended_next_step=(
-                "Run pytest collection diagnostics and inspect "
-                "the referenced test modules."
+                "Run pytest collection diagnostics and inspect the referenced test modules."
             ),
         )
 
@@ -279,9 +238,7 @@ def _classify_test_error(
 
     if browser_evidence:
         return FailureClassification(
-            category=(
-                FailureCategory.BROWSER_OR_ENVIRONMENT_FAILURE
-            ),
+            category=(FailureCategory.BROWSER_OR_ENVIRONMENT_FAILURE),
             confidence=0.95,
             evidence=browser_evidence,
             recommended_next_step=(
@@ -295,9 +252,7 @@ def _classify_test_error(
         _FIXTURE_EXCEPTION_NAMES,
     )
     fixture_files = tuple(
-        path
-        for path in evidence.traceback_files
-        if _normalized_path(path).endswith("/conftest.py")
+        path for path in evidence.traceback_files if _normalized_path(path).endswith("/conftest.py")
     )
 
     if fixture_exceptions or fixture_files:
@@ -308,8 +263,7 @@ def _classify_test_error(
                     for exception_type in fixture_exceptions
                 ),
                 *(
-                    f"Fixture configuration file appeared in traceback: "
-                    f"{path}."
+                    f"Fixture configuration file appeared in traceback: {path}."
                     for path in fixture_files
                 ),
             ]
@@ -320,8 +274,7 @@ def _classify_test_error(
             confidence=0.98,
             evidence=fixture_evidence,
             recommended_next_step=(
-                "Inspect fixture definitions, dependencies, scope, "
-                "and setup logic."
+                "Inspect fixture definitions, dependencies, scope, and setup logic."
             ),
         )
 
@@ -337,9 +290,7 @@ def _classify_test_failure(
 
     if browser_evidence:
         return FailureClassification(
-            category=(
-                FailureCategory.BROWSER_OR_ENVIRONMENT_FAILURE
-            ),
+            category=(FailureCategory.BROWSER_OR_ENVIRONMENT_FAILURE),
             confidence=0.95,
             evidence=browser_evidence,
             recommended_next_step=(
@@ -352,11 +303,7 @@ def _classify_test_failure(
         evidence,
         _TEST_DATA_EXCEPTION_NAMES,
     )
-    data_files = tuple(
-        path
-        for path in evidence.traceback_files
-        if _is_test_data_path(path)
-    )
+    data_files = tuple(path for path in evidence.traceback_files if _is_test_data_path(path))
 
     if data_exceptions and data_files:
         return FailureClassification(
@@ -365,19 +312,14 @@ def _classify_test_failure(
             evidence=tuple(
                 [
                     *(
-                        f"Data-related exception detected: "
-                        f"{exception_type}."
+                        f"Data-related exception detected: {exception_type}."
                         for exception_type in data_exceptions
                     ),
-                    *(
-                        f"Test-data path appeared in traceback: {path}."
-                        for path in data_files
-                    ),
+                    *(f"Test-data path appeared in traceback: {path}." for path in data_files),
                 ]
             ),
             recommended_next_step=(
-                "Validate fixture files, generated inputs, schemas, "
-                "and test-data assumptions."
+                "Validate fixture files, generated inputs, schemas, and test-data assumptions."
             ),
         )
 
@@ -393,10 +335,7 @@ def _classify_test_failure(
                     f"Assertion exception detected: {exception_type}."
                     for exception_type in assertion_exceptions
                 ),
-                *(
-                    f"Assertion evidence: {message}"
-                    for message in evidence.assertion_messages
-                ),
+                *(f"Assertion evidence: {message}" for message in evidence.assertion_messages),
             ]
         )
 
@@ -413,13 +352,10 @@ def _classify_test_failure(
     application_exceptions = tuple(
         exception_type
         for exception_type in evidence.exception_types
-        if _exception_name(exception_type)
-        not in _ASSERTION_EXCEPTION_NAMES
+        if _exception_name(exception_type) not in _ASSERTION_EXCEPTION_NAMES
     )
     application_files = tuple(
-        path
-        for path in evidence.traceback_files
-        if _is_application_path(path)
+        path for path in evidence.traceback_files if _is_application_path(path)
     )
 
     if application_exceptions and application_files:
@@ -429,13 +365,11 @@ def _classify_test_failure(
             evidence=tuple(
                 [
                     *(
-                        f"Application exception detected: "
-                        f"{exception_type}."
+                        f"Application exception detected: {exception_type}."
                         for exception_type in application_exceptions
                     ),
                     *(
-                        f"Application source path appeared in traceback: "
-                        f"{path}."
+                        f"Application source path appeared in traceback: {path}."
                         for path in application_files
                     ),
                 ]
@@ -469,11 +403,7 @@ def _browser_environment_evidence(
         evidence,
         _BROWSER_GENERIC_EXCEPTION_NAMES,
     )
-    browser_files = tuple(
-        path
-        for path in evidence.traceback_files
-        if _is_browser_path(path)
-    )
+    browser_files = tuple(path for path in evidence.traceback_files if _is_browser_path(path))
 
     if not generic_exceptions or not browser_files:
         return ()
@@ -484,10 +414,7 @@ def _browser_environment_evidence(
                 f"Environment exception detected: {exception_type}."
                 for exception_type in generic_exceptions
             ),
-            *(
-                f"Browser-library path appeared in traceback: {path}."
-                for path in browser_files
-            ),
+            *(f"Browser-library path appeared in traceback: {path}." for path in browser_files),
         ]
     )
 
@@ -530,11 +457,7 @@ def _is_test_data_path(path: str) -> bool:
 
     parts = _normalized_path(path).split("/")
 
-    return (
-        "data" in parts
-        or "fixtures" in parts
-        or any("test_data" in part for part in parts)
-    )
+    return "data" in parts or "fixtures" in parts or any("test_data" in part for part in parts)
 
 
 def _is_application_path(path: str) -> bool:

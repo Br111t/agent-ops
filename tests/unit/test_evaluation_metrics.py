@@ -40,10 +40,7 @@ def test_category_metrics_expose_false_positive_and_negative() -> None:
         FailureCategory.PASSED,
     )
 
-    metrics = {
-        metric.category: metric
-        for metric in calculate_category_metrics(expected, actual)
-    }
+    metrics = {metric.category: metric for metric in calculate_category_metrics(expected, actual)}
 
     assert metrics[FailureCategory.PASSED].precision == 0.5
     assert metrics[FailureCategory.PASSED].recall == 1.0

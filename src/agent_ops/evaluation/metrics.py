@@ -89,18 +89,12 @@ def calculate_confusion_matrix(
     """Return an observed expected-by-actual confusion matrix."""
     _validate_paired_categories(expected, actual)
     observed = set(expected) | set(actual)
-    categories = tuple(
-        category
-        for category in FailureCategory
-        if category in observed
-    )
+    categories = tuple(category for category in FailureCategory if category in observed)
     counts = Counter(zip(expected, actual, strict=True))
 
     return {
         expected_category.value: {
-            actual_category.value: counts[
-                (expected_category, actual_category)
-            ]
+            actual_category.value: counts[(expected_category, actual_category)]
             for actual_category in categories
         }
         for expected_category in categories
@@ -133,10 +127,7 @@ def calculate_evidence_coverage(
 
     normalized_evidence = tuple(item.casefold() for item in evidence)
     matched = sum(
-        any(
-            marker.casefold() in evidence_item
-            for evidence_item in normalized_evidence
-        )
+        any(marker.casefold() in evidence_item for evidence_item in normalized_evidence)
         for marker in required_markers
     )
 
@@ -151,10 +142,7 @@ def count_forbidden_evidence(
     normalized_evidence = tuple(item.casefold() for item in evidence)
 
     return sum(
-        any(
-            marker.casefold() in evidence_item
-            for evidence_item in normalized_evidence
-        )
+        any(marker.casefold() in evidence_item for evidence_item in normalized_evidence)
         for marker in forbidden_markers
     )
 

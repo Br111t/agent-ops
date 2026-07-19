@@ -167,12 +167,8 @@ FAILURE_CLASSIFICATION_DATASET = ClassificationEvaluationDataset(
                 passed=0,
                 errors=1,
                 summary_line="1 error in 0.10s",
-                exception_types=(
-                    "playwright._impl._errors.TargetClosedError",
-                ),
-                traceback_files=(
-                    "site-packages/playwright/_impl/_connection.py",
-                ),
+                exception_types=("playwright._impl._errors.TargetClosedError",),
+                traceback_files=("site-packages/playwright/_impl/_connection.py",),
             ),
             required_markers=("browser exception detected",),
             forbidden_markers=("fixture",),
@@ -187,9 +183,7 @@ FAILURE_CLASSIFICATION_DATASET = ClassificationEvaluationDataset(
                 failed=1,
                 summary_line="1 failed in 0.10s",
                 exception_types=("TimeoutError",),
-                traceback_files=(
-                    "site-packages/selenium/webdriver/remote.py",
-                ),
+                traceback_files=("site-packages/selenium/webdriver/remote.py",),
             ),
             required_markers=(
                 "environment exception detected",

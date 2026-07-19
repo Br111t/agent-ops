@@ -45,9 +45,7 @@ def test_normalize_execution_evidence_combines_known_fields() -> None:
     assert result.passed == 2
     assert result.failed == 1
     assert result.warning_count == 3
-    assert result.failed_tests == (
-        "tests/test_math.py::test_add",
-    )
+    assert result.failed_tests == ("tests/test_math.py::test_add",)
     assert result.exception_types == ()
     assert result.assertion_messages == ()
     assert result.traceback_files == ()
@@ -89,9 +87,7 @@ def test_normalize_execution_evidence_includes_local_details() -> None:
         command=("python", "-m", "pytest", "-q"),
         exit_code=1,
         stdout=(
-            "src/calculator.py:12: in add\n"
-            "E   AssertionError: incorrect total\n"
-            "1 failed in 0.20s\n"
+            "src/calculator.py:12: in add\nE   AssertionError: incorrect total\n1 failed in 0.20s\n"
         ),
         stderr="",
         duration_seconds=0.3,
@@ -109,9 +105,5 @@ def test_normalize_execution_evidence_includes_local_details() -> None:
     )
 
     assert result.exception_types == ("AssertionError",)
-    assert result.assertion_messages == (
-        "incorrect total",
-    )
-    assert result.traceback_files == (
-        "src/calculator.py",
-    )
+    assert result.assertion_messages == ("incorrect total",)
+    assert result.traceback_files == ("src/calculator.py",)

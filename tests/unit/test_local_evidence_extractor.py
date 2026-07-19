@@ -45,9 +45,7 @@ def test_extract_local_evidence_reads_diagnostic_details() -> None:
         "src/calculator.py",
         "C:\\repo\\src\\worker.py",
     )
-    assert result.warning_messages == (
-        "DeprecationWarning: use new client",
-    )
+    assert result.warning_messages == ("DeprecationWarning: use new client",)
 
 
 def test_extract_local_evidence_ignores_unrecognized_output() -> None:
