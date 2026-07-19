@@ -17,7 +17,7 @@ Rather than applying changes autonomously, Agent-Ops begins with a read-only dia
 ## Project Status
 
 **Status:** Active development  
-**Current phase:** Deterministic diagnostic reporting and evaluation baseline
+**Current phase:** Phase 1 evaluation baseline complete; Phase 2 durable diagnostic runs next
 
 The initial release focuses on:
 
@@ -115,6 +115,11 @@ The command-safety report records every expected and actual approval decision. T
 runner exits with status `1` if the policy incorrectly approves an unsafe case or
 rejects the trusted pytest command.
 
+The current datasets are synthetic and versioned. New synthetic, sanitized-real,
+and regression cases follow the documented provenance, sanitization, labeling,
+versioning, and promotion controls in the
+[evaluation dataset governance policy](docs/evaluation-dataset-governance.md).
+
 ## Target Direction
 
 Later phases may add evidence-supported recommendations, human-approved candidate
@@ -128,4 +133,5 @@ only after their safety and evaluation contracts are established.
 - [Roadmap](docs/roadmap.md)
 - [Failure taxonomy](docs/failure-taxonomy.md)
 - [Evaluation strategy](docs/repository_aware_evaluation.md)
+- [Evaluation dataset governance](docs/evaluation-dataset-governance.md)
 - [Architectural decisions](docs/decisions/)

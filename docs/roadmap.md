@@ -30,7 +30,7 @@ Implemented foundations include:
 
 ## Phase 1: Evaluation Baseline
 
-**Status:** In progress
+**Status:** Complete
 
 **Goal:** Measure the diagnostic system before adding model-assisted analysis or
 greater autonomy.
@@ -51,10 +51,11 @@ latency capture, per-category results, a confusion matrix, and machine-readable 
 output. Reports now require explicit system-version provenance and can be compared
 case by case with deterministic no-regression gates suitable for CI. A separate
 versioned command-safety corpus measures exact allowlist decisions without executing
-candidate commands and blocks any incorrect approval or rejection.
-
-Remaining evaluation work is documented dataset sanitization and promotion
-procedures.
+candidate commands and blocks any incorrect approval or rejection. Dataset
+governance now defines source provenance, raw-evidence boundaries, sanitization,
+trusted labeling, semantic versioning, promotion gates, review checklists, and
+incident handling. The checked-in Phase 1 corpora are explicitly recorded as
+synthetic version `1.0.0` datasets.
 
 LLM-as-a-judge evaluation is not required in this phase. The deterministic
 evaluation decision is recorded in

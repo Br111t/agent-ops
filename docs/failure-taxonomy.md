@@ -125,6 +125,9 @@ Reference labels should follow these rules:
 - Do not derive the reference label by running the classifier being evaluated.
 - Require human adjudication for ambiguous cases used as trusted references.
 
+Dataset sourcing, sanitization, versioning, and promotion follow
+[`evaluation-dataset-governance.md`](evaluation-dataset-governance.md).
+
 ## Evolving the Taxonomy
 
 Adding or changing a public category requires:
