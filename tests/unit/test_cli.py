@@ -1,6 +1,7 @@
 """Tests for the Agent-Ops command-line interface."""
 
 import json
+from contextlib import nullcontext
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from unittest.mock import Mock
@@ -124,10 +125,7 @@ def test_cli_does_not_run_tests_by_default(
         "run": completed_run,
     }
 
-    monkeypatch.setattr(
-        "agent_ops.cli.build_diagnostic_graph",
-        lambda: graph,
-    )
+    open_graph = _install_graph(monkeypatch, graph)
 
     main([str(tmp_path)])
 
@@ -137,8 +135,11 @@ def test_cli_does_not_run_tests_by_default(
         {
             "repository_path": str(tmp_path),
             "run_tests": False,
-        }
+            "run_id": RUN_ID,
+        },
+        _graph_config(),
     )
+    open_graph.assert_called_once_with(None, repository_path=str(tmp_path))
 
     assert output["repository"] == repository_profile.model_dump(mode="json")
     assert output["test_framework"] == framework_profile.model_dump(mode="json")
@@ -186,10 +187,7 @@ def test_cli_runs_tests_when_explicitly_requested(
         "run": completed_run,
     }
 
-    monkeypatch.setattr(
-        "agent_ops.cli.build_diagnostic_graph",
-        lambda: graph,
-    )
+    open_graph = _install_graph(monkeypatch, graph)
 
     main([str(tmp_path), "--run-tests"])
 
@@ -199,8 +197,11 @@ def test_cli_runs_tests_when_explicitly_requested(
         {
             "repository_path": str(tmp_path),
             "run_tests": True,
-        }
+            "run_id": RUN_ID,
+        },
+        _graph_config(),
     )
+    open_graph.assert_called_once_with(None, repository_path=str(tmp_path))
 
     assert output["repository"] == repository_profile.model_dump(mode="json")
     assert output["test_framework"] == framework_profile.model_dump(mode="json")
@@ -269,10 +270,7 @@ def test_cli_reports_failed_execution_without_discarding_raw_evidence(
         "run": completed_run,
     }
 
-    monkeypatch.setattr(
-        "agent_ops.cli.build_diagnostic_graph",
-        lambda: graph,
-    )
+    _install_graph(monkeypatch, graph)
 
     main([str(tmp_path), "--run-tests"])
 
@@ -320,10 +318,7 @@ def test_cli_classifies_unsupported_framework_without_execution(
         "run": completed_run,
     }
 
-    monkeypatch.setattr(
-        "agent_ops.cli.build_diagnostic_graph",
-        lambda: graph,
-    )
+    _install_graph(monkeypatch, graph)
 
     main([str(tmp_path), "--run-tests"])
 
@@ -380,7 +375,7 @@ def test_cli_passes_explicit_run_id_to_graph(
         "framework_profile": framework_profile,
         "run": completed_run,
     }
-    monkeypatch.setattr("agent_ops.cli.build_diagnostic_graph", lambda: graph)
+    open_graph = _install_graph(monkeypatch, graph)
 
     main([str(tmp_path), "--run-id", str(RUN_ID)])
 
@@ -389,6 +384,85 @@ def test_cli_passes_explicit_run_id_to_graph(
             "repository_path": str(tmp_path),
             "run_tests": False,
             "run_id": RUN_ID,
-        }
+        },
+        _graph_config(),
     )
+    open_graph.assert_called_once_with(None, repository_path=str(tmp_path))
     assert json.loads(capsys.readouterr().out)["run"]["run_id"] == str(RUN_ID)
+
+
+def test_cli_passes_custom_checkpoint_database_to_graph(
+    tmp_path: Path,
+    repository_profile: RepositoryProfile,
+    framework_profile: FrameworkProfile,
+    completed_run: DiagnosticRun,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """A custom SQLite location should cross the CLI boundary as a Path."""
+    checkpoint_path = tmp_path.parent / "agent-ops-state.sqlite3"
+    graph = Mock()
+    graph.invoke.return_value = {
+        "repository_path": str(tmp_path),
+        "run_tests": False,
+        "repository_profile": repository_profile,
+        "framework_profile": framework_profile,
+        "run": completed_run,
+    }
+    open_graph = _install_graph(monkeypatch, graph)
+
+    main(
+        [
+            str(tmp_path),
+            "--run-id",
+            str(RUN_ID),
+            "--checkpoint-db",
+            str(checkpoint_path),
+        ]
+    )
+
+    open_graph.assert_called_once_with(
+        checkpoint_path,
+        repository_path=str(tmp_path),
+    )
+    assert json.loads(capsys.readouterr().out)["run"]["status"] == "completed"
+
+
+def test_cli_rejects_existing_checkpoint_thread(
+    tmp_path: Path,
+    completed_run: DiagnosticRun,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """A new invocation must not silently replay an existing diagnostic run."""
+    graph = Mock()
+    _install_graph(monkeypatch, graph)
+    graph.get_state.return_value.values = {"run": completed_run}
+
+    with pytest.raises(SystemExit) as error:
+        main([str(tmp_path), "--run-id", str(RUN_ID)])
+
+    assert error.value.code == 2
+    assert "Checkpoint history already exists" in capsys.readouterr().err
+    graph.invoke.assert_not_called()
+
+
+def _install_graph(
+    monkeypatch: pytest.MonkeyPatch,
+    graph: Mock,
+) -> Mock:
+    """Install one context-managed graph double with a deterministic generated ID."""
+    open_graph = Mock(return_value=nullcontext(graph))
+    graph.get_state.return_value.values = {}
+    monkeypatch.setattr("agent_ops.cli.open_sqlite_diagnostic_graph", open_graph)
+    monkeypatch.setattr("agent_ops.cli.uuid4", lambda: RUN_ID)
+    return open_graph
+
+
+def _graph_config() -> dict[str, dict[str, str]]:
+    """Return the expected LangGraph thread configuration for the fixed run ID."""
+    return {
+        "configurable": {
+            "thread_id": str(RUN_ID),
+        }
+    }

@@ -3,14 +3,15 @@
 import argparse
 import json
 from collections.abc import Sequence
-from uuid import UUID
+from pathlib import Path
+from uuid import UUID, uuid4
 
 from agent_ops.models import (
     DiagnosticExecutionReport,
     DiagnosticReport,
     DiagnosticRunStatus,
 )
-from agent_ops.workflow import build_diagnostic_graph
+from agent_ops.workflow import build_checkpoint_config, open_sqlite_diagnostic_graph
 from agent_ops.workflow.state import AgentOpsState
 
 
@@ -35,6 +36,14 @@ def build_parser() -> argparse.ArgumentParser:
         "--run-id",
         type=UUID,
         help="Optional UUID to assign as the stable diagnostic run identifier.",
+    )
+    parser.add_argument(
+        "--checkpoint-db",
+        type=Path,
+        help=(
+            "SQLite checkpoint database. Defaults to "
+            "$AGENT_OPS_HOME/checkpoints.sqlite3 or ~/.agent-ops/checkpoints.sqlite3."
+        ),
     )
     return parser
 
@@ -69,17 +78,28 @@ def build_diagnostic_report(state: AgentOpsState) -> DiagnosticReport:
 
 def main(argv: Sequence[str] | None = None) -> None:
     """Run the Agent-Ops diagnostic workflow."""
-    args = build_parser().parse_args(argv)
+    parser = build_parser()
+    args = parser.parse_args(argv)
 
-    graph = build_diagnostic_graph()
+    run_id = args.run_id or uuid4()
     input_state: AgentOpsState = {
         "repository_path": args.repository_path,
         "run_tests": args.run_tests,
+        "run_id": run_id,
     }
-    if args.run_id is not None:
-        input_state["run_id"] = args.run_id
+    graph_config = build_checkpoint_config(run_id)
 
-    state = graph.invoke(input_state)
+    with open_sqlite_diagnostic_graph(
+        args.checkpoint_db,
+        repository_path=args.repository_path,
+    ) as graph:
+        if graph.get_state(graph_config).values:
+            parser.error(
+                "Checkpoint history already exists for this run ID; "
+                "resume is not supported by this command yet."
+            )
+
+        state = graph.invoke(input_state, graph_config)
 
     report = build_diagnostic_report(state)
 

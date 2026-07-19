@@ -2,6 +2,7 @@
 
 from typing import Literal
 
+from langgraph.checkpoint.base import BaseCheckpointSaver
 from langgraph.graph import END, START, StateGraph
 from langgraph.graph.state import CompiledStateGraph
 
@@ -33,8 +34,10 @@ def route_after_framework_detection(
     return "execute"
 
 
-def build_diagnostic_graph() -> CompiledStateGraph:
-    """Build and compile the Agent-Ops diagnostic workflow."""
+def build_diagnostic_graph(
+    checkpointer: BaseCheckpointSaver[str] | None = None,
+) -> CompiledStateGraph:
+    """Build the Agent-Ops graph with an optional persistence backend."""
 
     builder = StateGraph(AgentOpsState)
 
@@ -115,4 +118,4 @@ def build_diagnostic_graph() -> CompiledStateGraph:
         END,
     )
 
-    return builder.compile()
+    return builder.compile(checkpointer=checkpointer)

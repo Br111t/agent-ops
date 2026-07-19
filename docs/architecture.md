@@ -39,6 +39,7 @@ flowchart TD
     CLI[CLI] --> Graph[Diagnostic graph]
     Graph --> Report[Diagnostic report]
     Graph --> Run[Run lifecycle]
+    Graph --> Checkpoints[SQLite checkpoints]
     Graph --> Repo[Repository inspection]
     Graph --> Tools[Approved test tools]
     Graph --> Analysis[Evidence analysis]
@@ -54,7 +55,8 @@ flowchart TD
 optional caller-supplied `--run-id`. It invokes the compiled graph, builds an
 immutable public diagnostic report, and serializes the supported result fields as
 JSON. Optional report sections are emitted only when the graph produced them. The
-default path does not run tests.
+default path does not run tests. `--checkpoint-db` can override the durable local
+database without allowing it to reside inside the inspected repository.
 
 ### Workflow orchestration
 
@@ -82,9 +84,10 @@ flowchart TD
 
 The graph creates or accepts one stable UUID before diagnostic work, advances an
 explicit immutable lifecycle model after successful stages, and completes that
-lifecycle before exposing a report. It currently compiles without a checkpointer.
-Durable checkpoints, resume, time travel, streaming, and human interrupts remain
-planned orchestration features.
+lifecycle before exposing a report. The CLI compiles the graph with a synchronous
+SQLite saver and uses the run UUID as the LangGraph thread ID. LangGraph persists a
+state snapshot at each super-step. Resume, time travel, streaming, and human
+interrupts remain planned orchestration features.
 
 ### Repository intelligence
 
@@ -154,7 +157,7 @@ sanitization, trusted labeling, versioning, and promotion are governed by
 
 ## State and Evidence Boundaries
 
-The graph state is transient orchestration state. It currently contains:
+The graph state is checkpointed orchestration state. It currently contains:
 
 - a stable run identifier, lifecycle, and version provenance;
 - repository path and execution intent;
@@ -185,20 +188,34 @@ The implemented persistence foundation contains:
 - Agent-Ops version provenance;
 - target repository identity, optional Git commit SHA, and required content snapshot;
 - current lifecycle status and stage; and
-- monotonically ordered lifecycle transitions with timezone-aware timestamps.
+- monotonically ordered lifecycle transitions with timezone-aware timestamps;
+- a local SQLite checkpointer whose thread ID equals the diagnostic run UUID; and
+- retained state history across process and connection lifetimes.
 
 The remaining persistence work should add:
 
 - workflow, classifier, prompt, and model versions when applicable;
-- the next permitted operation;
+- safe resume and the next permitted operation;
 - evidence references;
 - approval state;
 - error or interruption information; and
-- durable checkpoint sequence metadata.
+- user-facing checkpoint history and fork metadata.
 
-SQLite is the preferred first durable checkpointer for local operation. A deployed,
-concurrent service may later use PostgreSQL. In-memory persistence is appropriate
-only for tests and demonstrations.
+SQLite is the implemented local checkpointer. Its connection is scoped to the graph
+operation and closed deterministically. The default database lives under
+`$AGENT_OPS_HOME` or `~/.agent-ops`, and custom database paths inside the target
+repository are rejected. SQLite is appropriate for the current lightweight,
+synchronous CLI; a deployed concurrent service may later use PostgreSQL. In-memory
+persistence is appropriate only for tests and demonstrations.
+
+Checkpoint deserialization uses an explicit allowlist of Agent-Ops state model types
+instead of LangGraph's permissive fallback. This keeps restart behavior compatible
+with strict MessagePack handling and limits dynamic type reconstruction to the
+models the diagnostic graph is designed to persist.
+
+The new-run CLI rejects an existing checkpoint thread until resume semantics are
+implemented. The saved history remains available to LangGraph state APIs and is not
+deleted by this guard.
 
 Time-travel execution must create a new branch without deleting the original run.
 Returning to a checkpoint does not reverse real-world side effects. Any replayable
@@ -206,6 +223,8 @@ node that can mutate external state must be idempotent or require renewed approv
 
 The run and repository provenance decision is recorded in
 [`decisions/004-stable-run-and-repository-provenance.md`](decisions/004-stable-run-and-repository-provenance.md).
+The local checkpoint decision is recorded in
+[`decisions/005-local-sqlite-checkpoints.md`](decisions/005-local-sqlite-checkpoints.md).
 
 ## Planned Streaming and Observability
 
