@@ -7,16 +7,9 @@ from time import perf_counter
 
 from agent_ops.models import (
     TestExecutionResult,
-    TestFramework,
     TestFrameworkProfile,
 )
-
-APPROVED_PYTEST_COMMAND = (
-    "python",
-    "-m",
-    "pytest",
-    "-q",
-)
+from agent_ops.safety import require_approved_test_command
 
 
 def execute_approved_tests(
@@ -34,13 +27,7 @@ def execute_approved_tests(
     if not root_path.is_dir():
         raise NotADirectoryError(f"Repository path is not a directory: {root_path}")
 
-    approved_command = framework_profile.approved_command
-
-    if (
-        framework_profile.framework is not TestFramework.PYTEST
-        or approved_command != APPROVED_PYTEST_COMMAND
-    ):
-        raise ValueError("Test command is not approved for execution.")
+    approved_command = require_approved_test_command(framework_profile)
 
     runtime_command = (
         sys.executable,

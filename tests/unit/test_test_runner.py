@@ -58,6 +58,7 @@ def test_execute_approved_tests_captures_result(
 
 def test_execute_approved_tests_rejects_unapproved_command(
     tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Modified or unrestricted commands must not execute."""
     unapproved_profile = FrameworkProfile(
@@ -72,6 +73,11 @@ def test_execute_approved_tests_rejects_unapproved_command(
             "--unexpected-option",
         ),
     )
+
+    def fail_if_executed(*args: object, **kwargs: object) -> None:
+        raise AssertionError("Unapproved command reached subprocess execution.")
+
+    monkeypatch.setattr(subprocess, "run", fail_if_executed)
 
     with pytest.raises(
         ValueError,
