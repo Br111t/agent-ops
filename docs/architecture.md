@@ -123,7 +123,10 @@ ranges.
 `agent_ops.evaluation` contains the deterministic evaluation runner and metric
 functions. `evals/` contains the versioned reference dataset and executable local
 entry point. The initial baseline measures classification, abstention, evidence,
-latency, and category confusion without external services. Evaluation is described in
+latency, and category confusion without external services. Validated reports can be
+written as JSON and compared across immutable system versions. The comparison layer
+records per-case regressions and improvements, metric deltas, and a deterministic
+no-regression gate. Evaluation is described in
 [`repository_aware_evaluation.md`](repository_aware_evaluation.md).
 
 ## State and Evidence Boundaries

@@ -181,8 +181,17 @@ deterministic classification metrics.
 Run the current local classification dataset with:
 
 ```bash
-python -m evals.run_failure_classification
+python -m evals.run_failure_classification \
+  --system-version <commit-sha-or-tree:sha> \
+  --output evals/reports/<version>.json
 ```
+
+The system version is required so a saved report is never labeled only as a mutable
+working tree. Accepted baselines and CI candidates use a full commit SHA. Pre-commit
+development candidates use the SHA returned by `git write-tree`, prefixed with
+`tree:`. All intended files must be staged and `git diff --quiet` must succeed before
+the run so the executing code matches that staged snapshot. Generated reports are
+local artifacts and are not committed by default.
 
 ## Experiment Protocol
 
@@ -204,6 +213,21 @@ dimensions.
 Initial numerical thresholds should be established from a trustworthy baseline
 rather than invented in advance. Once adopted, a threshold change requires an
 explicit rationale.
+
+Compare compatible reports with:
+
+```bash
+python -m evals.compare_failure_classification \
+  evals/reports/<baseline>.json \
+  evals/reports/<candidate>.json \
+  --output evals/reports/<comparison>.json
+```
+
+Comparison requires matching dataset names, versions, case identifiers, and expected
+categories. The default gate blocks any passing-to-failing case change or decline in
+category accuracy, abstention accuracy, evidence accuracy, or macro F1. It records
+latency changes without gating them. Invalid report schemas or incompatible datasets
+are rejected before comparison.
 
 ## Future Repository Retrieval Evaluation
 

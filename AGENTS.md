@@ -31,6 +31,8 @@ The current phase focuses on:
 * Evidence collection
 * Failure classification foundations
 * Diagnostic report generation
+* Reproducible deterministic evaluation reports
+* Baseline-versus-candidate regression gates
 * Traceable tool activity
 
 Do not assume that planned features already exist.
@@ -67,7 +69,7 @@ The primary package uses a `src` layout:
 src/agent_ops/
 ├── __main__.py          # Command-line entry point
 ├── analysis/            # Parsing and analysis of captured evidence
-├── evaluation/          # Reserved evaluation runners and metrics
+├── evaluation/          # Evaluation runners, comparison, metrics, and report I/O
 ├── models/              # Pydantic domain and result models
 ├── repository/          # Repository scanning and framework detection
 ├── safety.py/           # Reserved command and path policy modules
@@ -117,8 +119,9 @@ Detect its test framework
 ```
 
 The graph state contains normalized evidence and classification. The current CLI
-serializes repository, framework, and test-execution fields; changes to expose
-additional public fields must be additive where practical and covered by CLI tests.
+serializes an immutable diagnostic report containing the supported repository,
+framework, execution, normalized-evidence, and classification sections. Public
+changes must be additive where practical and covered by CLI tests.
 
 The CLI entry point is:
 
@@ -164,6 +167,24 @@ Run lint checks:
 
 ```bash
 python -m ruff check .
+```
+
+Run the deterministic evaluation with an explicit immutable version identifier. Use
+a full commit SHA for committed code or `tree:<tree-sha>` for a fully staged candidate
+with no unstaged changes:
+
+```bash
+python -m evals.run_failure_classification \
+  --system-version <commit-sha-or-tree:sha> \
+  --output evals/reports/<version>.json
+```
+
+Evaluation comparison returns a nonzero status when the candidate regresses:
+
+```bash
+python -m evals.compare_failure_classification \
+  evals/reports/<baseline>.json \
+  evals/reports/<candidate>.json
 ```
 
 For a focused change, run the narrowest relevant test first, followed by the complete test suite when practical.

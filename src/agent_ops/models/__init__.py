@@ -6,10 +6,13 @@ from agent_ops.models.diagnostic_report import (
 )
 from agent_ops.models.evaluation import (
     CategoryEvaluationMetrics,
+    ClassificationCaseComparison,
     ClassificationCaseEvaluationResult,
     ClassificationEvaluationCase,
+    ClassificationEvaluationComparison,
     ClassificationEvaluationDataset,
     ClassificationEvaluationReport,
+    EvaluationCaseChange,
     EvaluationSourceType,
 )
 from agent_ops.models.execution_evidence import (
@@ -30,12 +33,15 @@ from agent_ops.models.test_summary import TestResultSummary
 
 __all__ = [
     "CategoryEvaluationMetrics",
+    "ClassificationCaseComparison",
     "ClassificationCaseEvaluationResult",
     "ClassificationEvaluationCase",
+    "ClassificationEvaluationComparison",
     "ClassificationEvaluationDataset",
     "ClassificationEvaluationReport",
     "DiagnosticExecutionReport",
     "DiagnosticReport",
+    "EvaluationCaseChange",
     "EvaluationSourceType",
     "ExtractedExecutionDetails",
     "FailureCategory",

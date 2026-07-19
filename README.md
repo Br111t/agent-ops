@@ -64,6 +64,45 @@ unsupported framework can return a classification without claiming that a test
 command ran. Inspection without `--run-tests` remains read-only and omits execution
 and classification fields.
 
+## Deterministic Evaluation
+
+Generate one machine-readable report from each immutable system version. During
+development, stage the intended candidate files and use the staged Git tree SHA. This
+evaluates the exact proposed snapshot before creating a commit:
+
+```bash
+git add <intended-files>
+git diff --quiet
+git write-tree
+```
+
+`git diff --quiet` must succeed so the executing working tree matches the staged
+snapshot. Use the returned tree SHA as `tree:<sha>`:
+
+```bash
+python -m evals.run_failure_classification \
+  --system-version tree:<tree-sha> \
+  --output evals/reports/candidate.json
+```
+
+Accepted baselines and post-commit CI reports use the full commit SHA instead. The
+tree SHA and commit SHA are both immutable provenance identifiers; the tree form
+exists specifically to gate uncommitted development safely.
+
+Compare an accepted baseline with a candidate:
+
+```bash
+python -m evals.compare_failure_classification \
+  evals/reports/<baseline>.json \
+  evals/reports/<candidate>.json \
+  --output evals/reports/<comparison>.json
+```
+
+The comparison validates the report schema and dataset identity, records aggregate
+and case-level changes, and exits with status `1` when a previously passing case or
+gated accuracy metric regresses. Duration changes are reported but do not block a
+candidate because timing noise is expected.
+
 ## Target Direction
 
 Later phases may add evidence-supported recommendations, human-approved candidate
