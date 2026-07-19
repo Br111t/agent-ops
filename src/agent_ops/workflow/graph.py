@@ -8,8 +8,10 @@ from langgraph.graph.state import CompiledStateGraph
 from agent_ops.models import TestFramework
 from agent_ops.workflow.nodes import (
     classify_result_node,
+    complete_run_node,
     detect_framework_node,
     execute_tests_node,
+    initialize_run_node,
     inspect_repository_node,
     normalize_evidence_node,
     parse_results_node,
@@ -37,6 +39,10 @@ def build_diagnostic_graph() -> CompiledStateGraph:
     builder = StateGraph(AgentOpsState)
 
     builder.add_node(
+        "initialize_run",
+        initialize_run_node,
+    )
+    builder.add_node(
         "inspect_repository",
         inspect_repository_node,
     )
@@ -60,9 +66,17 @@ def build_diagnostic_graph() -> CompiledStateGraph:
         "classify_result",
         classify_result_node,
     )
+    builder.add_node(
+        "complete_run",
+        complete_run_node,
+    )
 
     builder.add_edge(
         START,
+        "initialize_run",
+    )
+    builder.add_edge(
+        "initialize_run",
         "inspect_repository",
     )
     builder.add_edge(
@@ -74,7 +88,7 @@ def build_diagnostic_graph() -> CompiledStateGraph:
         "detect_framework",
         route_after_framework_detection,
         {
-            "skip": END,
+            "skip": "complete_run",
             "classify": "classify_result",
             "execute": "execute_tests",
         },
@@ -94,6 +108,10 @@ def build_diagnostic_graph() -> CompiledStateGraph:
     )
     builder.add_edge(
         "classify_result",
+        "complete_run",
+    )
+    builder.add_edge(
+        "complete_run",
         END,
     )
 

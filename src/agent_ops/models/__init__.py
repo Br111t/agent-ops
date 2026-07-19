@@ -4,6 +4,12 @@ from agent_ops.models.diagnostic_report import (
     DiagnosticExecutionReport,
     DiagnosticReport,
 )
+from agent_ops.models.diagnostic_run import (
+    DiagnosticRun,
+    DiagnosticRunProvenance,
+    DiagnosticRunStage,
+    DiagnosticRunStatus,
+)
 from agent_ops.models.evaluation import (
     CategoryEvaluationMetrics,
     ClassificationCaseComparison,
@@ -49,6 +55,10 @@ __all__ = [
     "CommandSafetyEvaluationReport",
     "DiagnosticExecutionReport",
     "DiagnosticReport",
+    "DiagnosticRun",
+    "DiagnosticRunProvenance",
+    "DiagnosticRunStage",
+    "DiagnosticRunStatus",
     "EvaluationCaseChange",
     "EvaluationSourceType",
     "ExtractedExecutionDetails",

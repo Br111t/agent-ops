@@ -1,9 +1,14 @@
 """Tests for Agent-Ops workflow nodes."""
 
+from datetime import UTC, datetime
 from pathlib import Path
 from unittest.mock import patch
+from uuid import UUID
 
 from agent_ops.models import (
+    DiagnosticRun,
+    DiagnosticRunStage,
+    DiagnosticRunStatus,
     FailureCategory,
     FailureClassification,
     RepositoryProfile,
@@ -25,12 +30,42 @@ from agent_ops.models import (
 )
 from agent_ops.workflow.nodes import (
     classify_result_node,
+    complete_run_node,
     detect_framework_node,
     execute_tests_node,
+    initialize_run_node,
     inspect_repository_node,
     normalize_evidence_node,
     parse_results_node,
 )
+
+RUN_ID = UUID("8ba9fe08-23c7-4eb0-8290-610dd0075e20")
+STARTED_AT = datetime(2000, 1, 1, tzinfo=UTC)
+SNAPSHOT_SHA256 = "a" * 64
+
+
+def test_initialize_run_node_preserves_supplied_identity() -> None:
+    """Initialization should accept an externally assigned stable run ID."""
+    with (
+        patch("agent_ops.workflow.nodes.utc_now", return_value=STARTED_AT),
+        patch(
+            "agent_ops.workflow.nodes.get_agent_ops_version",
+            return_value="0.1.0",
+        ),
+    ):
+        result = initialize_run_node(
+            {
+                "repository_path": "/tmp/example",
+                "run_tests": False,
+                "run_id": RUN_ID,
+            }
+        )
+
+    assert result["run_id"] == RUN_ID
+    assert result["run"].run_id == RUN_ID
+    assert result["run"].status is DiagnosticRunStatus.RUNNING
+    assert result["run"].stage is DiagnosticRunStage.INITIALIZED
+    assert result["run"].provenance.agent_ops_version == "0.1.0"
 
 
 def test_inspect_repository_node_returns_profile() -> None:
@@ -44,6 +79,8 @@ def test_inspect_repository_node_returns_profile() -> None:
         configuration_files=["pyproject.toml"],
         test_files=["tests/test_example.py"],
         has_git_directory=True,
+        git_commit_sha="b" * 40,
+        snapshot_sha256=SNAPSHOT_SHA256,
     )
 
     with patch(
@@ -54,10 +91,14 @@ def test_inspect_repository_node_returns_profile() -> None:
             {
                 "repository_path": "/tmp/example",
                 "run_tests": False,
+                "run": _run_at(DiagnosticRunStage.INITIALIZED, with_provenance=False),
             }
         )
 
-    assert result == {"repository_profile": expected}
+    assert result["repository_profile"] == expected
+    assert result["run"].stage is DiagnosticRunStage.REPOSITORY_INSPECTION
+    assert result["run"].provenance.target_repository_version == (f"sha256:{SNAPSHOT_SHA256}")
+    assert result["run"].provenance.target_repository_revision == "b" * 40
     scan_repository.assert_called_once_with("/tmp/example")
 
 
@@ -79,10 +120,12 @@ def test_detect_framework_node_returns_profile() -> None:
             {
                 "repository_path": "/tmp/example",
                 "run_tests": False,
+                "run": _run_at(DiagnosticRunStage.REPOSITORY_INSPECTION),
             }
         )
 
-    assert result == {"framework_profile": expected}
+    assert result["framework_profile"] == expected
+    assert result["run"].stage is DiagnosticRunStage.FRAMEWORK_DETECTION
     detect_test_framework.assert_called_once_with("/tmp/example")
 
 
@@ -112,10 +155,12 @@ def test_execute_tests_node_returns_execution_result() -> None:
                 "repository_path": "/tmp/example",
                 "run_tests": True,
                 "framework_profile": framework_profile,
+                "run": _run_at(DiagnosticRunStage.FRAMEWORK_DETECTION),
             }
         )
 
-    assert result == {"execution_result": expected}
+    assert result["execution_result"] == expected
+    assert result["run"].stage is DiagnosticRunStage.TEST_EXECUTION
     execute_approved_tests.assert_called_once_with(
         "/tmp/example",
         framework_profile,
@@ -148,10 +193,12 @@ def test_parse_results_node_returns_summary() -> None:
                 "repository_path": "/tmp/example",
                 "run_tests": True,
                 "execution_result": execution_result,
+                "run": _run_at(DiagnosticRunStage.TEST_EXECUTION),
             }
         )
 
-    assert result == {"test_summary": expected}
+    assert result["test_summary"] == expected
+    assert result["run"].stage is DiagnosticRunStage.RESULT_PARSING
     parse_pytest_result.assert_called_once_with(execution_result)
 
 
@@ -191,12 +238,12 @@ def test_normalize_evidence_node_combines_execution_evidence() -> None:
                 "run_tests": True,
                 "execution_result": execution_result,
                 "test_summary": test_summary,
+                "run": _run_at(DiagnosticRunStage.RESULT_PARSING),
             }
         )
 
-    assert result == {
-        "normalized_evidence": normalized_evidence,
-    }
+    assert result["normalized_evidence"] == normalized_evidence
+    assert result["run"].stage is DiagnosticRunStage.EVIDENCE_NORMALIZATION
     normalize.assert_called_once_with(
         execution_result,
         test_summary,
@@ -237,13 +284,55 @@ def test_classify_result_node_returns_classification() -> None:
                 "run_tests": True,
                 "framework_profile": framework_profile,
                 "normalized_evidence": normalized_evidence,
+                "run": _run_at(DiagnosticRunStage.EVIDENCE_NORMALIZATION),
             }
         )
 
-    assert result == {
-        "classification": expected,
-    }
+    assert result["classification"] == expected
+    assert result["run"].stage is DiagnosticRunStage.FAILURE_CLASSIFICATION
     classify.assert_called_once_with(
         framework_profile,
         normalized_evidence,
     )
+
+
+def test_complete_run_node_marks_lifecycle_terminal() -> None:
+    """The terminal graph node should complete a fully identified run."""
+    result = complete_run_node(
+        {
+            "repository_path": "/tmp/example",
+            "run_tests": False,
+            "run": _run_at(DiagnosticRunStage.FRAMEWORK_DETECTION),
+        }
+    )
+
+    assert result["run"].status is DiagnosticRunStatus.COMPLETED
+    assert result["run"].stage is DiagnosticRunStage.COMPLETED
+    assert result["run"].finished_at is not None
+
+
+def _run_at(
+    stage: DiagnosticRunStage,
+    *,
+    with_provenance: bool = True,
+) -> DiagnosticRun:
+    """Return a valid running run positioned at a requested test stage."""
+    run = DiagnosticRun.start(
+        run_id=RUN_ID,
+        target_repository=Path("/tmp/example"),
+        agent_ops_version="0.1.0",
+        started_at=STARTED_AT,
+    )
+
+    if with_provenance:
+        run = run.record_repository_version(
+            target_repository=Path("/tmp/example"),
+            snapshot_sha256=SNAPSHOT_SHA256,
+            git_commit_sha=None,
+            recorded_at=STARTED_AT,
+        )
+
+    if stage is not DiagnosticRunStage.INITIALIZED:
+        run = run.transition(stage, transitioned_at=STARTED_AT)
+
+    return run

@@ -2,8 +2,11 @@
 
 from pathlib import Path
 from unittest.mock import patch
+from uuid import UUID
 
 from agent_ops.models import (
+    DiagnosticRunStage,
+    DiagnosticRunStatus,
     FailureCategory,
     FailureClassification,
     RepositoryProfile,
@@ -37,6 +40,8 @@ def test_graph_stops_before_execution_when_tests_not_requested() -> None:
         configuration_files=["pyproject.toml"],
         test_files=["tests/test_example.py"],
         has_git_directory=True,
+        git_commit_sha="b" * 40,
+        snapshot_sha256="a" * 64,
     )
     framework_profile = FrameworkProfile(
         framework=Framework.PYTEST,
@@ -72,6 +77,10 @@ def test_graph_stops_before_execution_when_tests_not_requested() -> None:
     assert "test_summary" not in result
     assert "normalized_evidence" not in result
     assert "classification" not in result
+    assert result["run"].status is DiagnosticRunStatus.COMPLETED
+    assert result["run"].stage is DiagnosticRunStage.COMPLETED
+    assert result["run"].provenance.target_repository_version == f"sha256:{'a' * 64}"
+    assert result["run"].provenance.target_repository_revision == "b" * 40
     execute_tests.assert_not_called()
 
 
@@ -86,6 +95,7 @@ def test_graph_executes_and_parses_when_tests_requested() -> None:
         configuration_files=["pyproject.toml"],
         test_files=["tests/test_example.py"],
         has_git_directory=True,
+        snapshot_sha256="a" * 64,
     )
     framework_profile = FrameworkProfile(
         framework=Framework.PYTEST,
@@ -152,10 +162,12 @@ def test_graph_executes_and_parses_when_tests_requested() -> None:
     ):
         graph = build_diagnostic_graph()
 
+        requested_run_id = UUID("8ba9fe08-23c7-4eb0-8290-610dd0075e20")
         result = graph.invoke(
             {
                 "repository_path": "/tmp/example",
                 "run_tests": True,
+                "run_id": requested_run_id,
             }
         )
 
@@ -165,6 +177,9 @@ def test_graph_executes_and_parses_when_tests_requested() -> None:
     assert result["test_summary"] == test_summary
     assert result["normalized_evidence"] == normalized_evidence
     assert result["classification"] == classification
+    assert result["run_id"] == requested_run_id
+    assert result["run"].run_id == requested_run_id
+    assert result["run"].status is DiagnosticRunStatus.COMPLETED
 
 
 def test_graph_classifies_unknown_framework_without_execution() -> None:
@@ -178,6 +193,7 @@ def test_graph_classifies_unknown_framework_without_execution() -> None:
         configuration_files=["package.json"],
         test_files=[],
         has_git_directory=True,
+        snapshot_sha256="a" * 64,
     )
     framework_profile = FrameworkProfile(
         framework=Framework.UNKNOWN,
@@ -228,6 +244,7 @@ def test_graph_classifies_unknown_framework_without_execution() -> None:
     assert "execution_result" not in result
     assert "test_summary" not in result
     assert "normalized_evidence" not in result
+    assert result["run"].status is DiagnosticRunStatus.COMPLETED
 
     execute_tests.assert_not_called()
     classify.assert_called_once_with(
