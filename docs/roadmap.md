@@ -73,6 +73,7 @@ Deliverables:
 - repository and version provenance;
 - SQLite-backed graph checkpoints;
 - explicit lifecycle and stage models;
+- a controlled end-to-end demo-repository acceptance gate for durable runs;
 - resume from the last safe checkpoint;
 - retained checkpoint history for debugging;
 - forked time-travel execution without deleting the original run; and
@@ -93,7 +94,10 @@ Implemented foundation:
 - a local SQLite saver with deterministic connection lifetime;
 - run UUIDs mapped directly to LangGraph thread IDs;
 - checkpoint databases kept outside inspected repositories; and
-- completed state and super-step history retained across graph reopen.
+- completed state and super-step history retained across graph reopen; and
+- a synthetic pytest demo repository exercised through the real CLI, covering
+  structured reports, Unicode execution evidence, SQLite history, and duplicate-run
+  rejection without mocks.
 
 Safe resume, user-facing history queries, time-travel forks, and complete replay
 protection remain to be implemented. Until resume exists, the new-run CLI rejects
