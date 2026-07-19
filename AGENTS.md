@@ -72,7 +72,7 @@ src/agent_ops/
 ├── evaluation/          # Evaluation runners, comparison, metrics, and report I/O
 ├── models/              # Pydantic domain and result models
 ├── repository/          # Repository scanning and framework detection
-├── safety.py/           # Reserved command and path policy modules
+├── safety/              # Central command and path policy modules
 ├── tools/               # Approved tool and test execution
 └── workflow/            # LangGraph state, nodes, routing, and construction
 ```
@@ -177,6 +177,14 @@ with no unstaged changes:
 python -m evals.run_failure_classification \
   --system-version <commit-sha-or-tree:sha> \
   --output evals/reports/<version>.json
+```
+
+Run the blocking command-safety evaluation against the same immutable version:
+
+```bash
+python -m evals.run_command_safety \
+  --system-version <commit-sha-or-tree:sha> \
+  --output evals/reports/<version>-command-safety.json
 ```
 
 Evaluation comparison returns a nonzero status when the candidate regresses:

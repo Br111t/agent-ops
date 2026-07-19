@@ -103,6 +103,18 @@ and case-level changes, and exits with status `1` when a previously passing case
 gated accuracy metric regresses. Duration changes are reported but do not block a
 candidate because timing noise is expected.
 
+Evaluate the exact command allowlist without launching any dataset command:
+
+```bash
+python -m evals.run_command_safety \
+  --system-version tree:<tree-sha> \
+  --output evals/reports/candidate-command-safety.json
+```
+
+The command-safety report records every expected and actual approval decision. The
+runner exits with status `1` if the policy incorrectly approves an unsafe case or
+rejects the trusted pytest command.
+
 ## Target Direction
 
 Later phases may add evidence-supported recommendations, human-approved candidate
