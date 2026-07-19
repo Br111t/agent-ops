@@ -5,9 +5,14 @@ from pathlib import Path
 from agent_ops.models import (
     ClassificationEvaluationComparison,
     ClassificationEvaluationReport,
+    CommandSafetyEvaluationReport,
 )
 
-EvaluationArtifact = ClassificationEvaluationReport | ClassificationEvaluationComparison
+EvaluationArtifact = (
+    ClassificationEvaluationReport
+    | ClassificationEvaluationComparison
+    | CommandSafetyEvaluationReport
+)
 
 
 def load_classification_report(path: Path) -> ClassificationEvaluationReport:

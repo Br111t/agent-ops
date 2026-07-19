@@ -6,7 +6,7 @@ from pydantic import BaseModel, ConfigDict, Field, computed_field, model_validat
 
 from agent_ops.models.execution_evidence import NormalizedExecutionEvidence
 from agent_ops.models.failure_classification import FailureCategory
-from agent_ops.models.test_framework import TestFrameworkProfile
+from agent_ops.models.test_framework import TestFramework, TestFrameworkProfile
 
 
 class EvaluationSourceType(StrEnum):
@@ -59,6 +59,46 @@ class ClassificationEvaluationDataset(BaseModel):
 
     @model_validator(mode="after")
     def validate_unique_case_ids(self) -> "ClassificationEvaluationDataset":
+        """Require stable, unique identifiers within a dataset version."""
+        case_ids = [case.case_id for case in self.cases]
+
+        if len(case_ids) != len(set(case_ids)):
+            raise ValueError("Evaluation case IDs must be unique.")
+
+        return self
+
+
+class CommandSafetyEvaluationCase(BaseModel):
+    """One trusted decision at the test-command approval boundary."""
+
+    model_config = ConfigDict(
+        extra="forbid",
+        frozen=True,
+    )
+
+    case_id: str = Field(min_length=1)
+    source_type: EvaluationSourceType
+    description: str = Field(min_length=1)
+    framework: TestFramework
+    command: tuple[str, ...] | None
+    expected_approved: bool
+    notes: str | None = None
+
+
+class CommandSafetyEvaluationDataset(BaseModel):
+    """A versioned collection of command-policy decisions."""
+
+    model_config = ConfigDict(
+        extra="forbid",
+        frozen=True,
+    )
+
+    name: str = Field(min_length=1)
+    version: str = Field(min_length=1)
+    cases: tuple[CommandSafetyEvaluationCase, ...] = Field(min_length=1)
+
+    @model_validator(mode="after")
+    def validate_unique_case_ids(self) -> "CommandSafetyEvaluationDataset":
         """Require stable, unique identifiers within a dataset version."""
         case_ids = [case.case_id for case in self.cases]
 
@@ -146,6 +186,76 @@ class ClassificationEvaluationReport(BaseModel):
 
         if sum(case.passed for case in self.cases) != self.passed_cases:
             raise ValueError("Passing case count must match passed_cases.")
+
+        return self
+
+
+class CommandSafetyCaseEvaluationResult(BaseModel):
+    """Measured policy decision for one command-safety case."""
+
+    model_config = ConfigDict(
+        extra="forbid",
+        frozen=True,
+    )
+
+    case_id: str = Field(min_length=1)
+    expected_approved: bool
+    actual_approved: bool
+    duration_seconds: float = Field(ge=0.0)
+    passed: bool
+
+
+class CommandSafetyEvaluationReport(BaseModel):
+    """Aggregate report for deterministic command-policy evaluation."""
+
+    model_config = ConfigDict(
+        extra="forbid",
+        frozen=True,
+    )
+
+    dataset_name: str = Field(min_length=1)
+    dataset_version: str = Field(min_length=1)
+    system_version: str = Field(min_length=1)
+    total_cases: int = Field(gt=0)
+    passed_cases: int = Field(ge=0)
+    approval_accuracy: float = Field(ge=0.0, le=1.0)
+    unsafe_approval_count: int = Field(ge=0)
+    safe_rejection_count: int = Field(ge=0)
+    duration_seconds: float = Field(ge=0.0)
+    cases: tuple[CommandSafetyCaseEvaluationResult, ...]
+
+    @computed_field
+    @property
+    def gate_passed(self) -> bool:
+        """Return whether every trusted approval decision matched policy output."""
+        return self.passed_cases == self.total_cases
+
+    @model_validator(mode="after")
+    def validate_case_totals(self) -> "CommandSafetyEvaluationReport":
+        """Require aggregate counts to match the serialized case results."""
+        case_ids = tuple(case.case_id for case in self.cases)
+
+        if len(self.cases) != self.total_cases:
+            raise ValueError("Evaluation case count must match total_cases.")
+
+        if len(case_ids) != len(set(case_ids)):
+            raise ValueError("Evaluation report case IDs must be unique.")
+
+        if sum(case.passed for case in self.cases) != self.passed_cases:
+            raise ValueError("Passing case count must match passed_cases.")
+
+        unsafe_approvals = sum(
+            not case.expected_approved and case.actual_approved for case in self.cases
+        )
+        safe_rejections = sum(
+            case.expected_approved and not case.actual_approved for case in self.cases
+        )
+
+        if unsafe_approvals != self.unsafe_approval_count:
+            raise ValueError("Unsafe approval count must match case results.")
+
+        if safe_rejections != self.safe_rejection_count:
+            raise ValueError("Safe rejection count must match case results.")
 
         return self
 

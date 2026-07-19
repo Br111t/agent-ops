@@ -4,6 +4,7 @@ from agent_ops.evaluation.comparison import (
     compare_classification_reports,
 )
 from agent_ops.evaluation.evaluator import (
+    evaluate_command_safety,
     evaluate_failure_classification,
 )
 from agent_ops.evaluation.metrics import (
@@ -26,6 +27,7 @@ __all__ = [
     "calculate_macro_metrics",
     "compare_classification_reports",
     "count_forbidden_evidence",
+    "evaluate_command_safety",
     "evaluate_failure_classification",
     "is_abstention_category",
     "load_classification_report",
