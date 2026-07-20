@@ -51,12 +51,18 @@ flowchart TD
 
 ### Command-line interface
 
-`agent_ops.cli` parses the repository path, the explicit `--run-tests` option, and an
-optional caller-supplied `--run-id`. It invokes the compiled graph, builds an
-immutable public diagnostic report, and serializes the supported result fields as
-JSON. Optional report sections are emitted only when the graph produced them. The
-default path does not run tests. `--checkpoint-db` can override the durable local
-database without allowing it to reside inside the inspected repository.
+`agent_ops.cli` parses the repository path, the explicit `--run-tests` option, an
+optional caller-supplied `--run-id`, and explicit `--resume` intent. It invokes the
+compiled graph, builds an immutable public diagnostic report, and serializes the
+supported result fields as JSON. Optional report sections are emitted only when the
+graph produced them. The default path does not run tests. `--checkpoint-db` can
+override the durable local database without allowing it to reside inside the
+inspected repository.
+
+Resume requires an existing run ID and continues the graph with no new input only
+after validating checkpoint identity, repository path and snapshot, lifecycle, and
+pending operations. It cannot be combined with `--run-tests` because execution
+intent comes from persisted state.
 
 ### Workflow orchestration
 
@@ -86,7 +92,8 @@ The graph creates or accepts one stable UUID before diagnostic work, advances an
 explicit immutable lifecycle model after successful stages, and completes that
 lifecycle before exposing a report. The CLI compiles the graph with a synchronous
 SQLite saver and uses the run UUID as the LangGraph thread ID. LangGraph persists a
-state snapshot at each super-step. Resume, time travel, streaming, and human
+state snapshot at each super-step. Safe resume is implemented for incomplete runs
+whose pending operations are non-side-effecting. Time travel, streaming, and human
 interrupts remain planned orchestration features.
 
 ### Repository intelligence
@@ -190,12 +197,13 @@ The implemented persistence foundation contains:
 - current lifecycle status and stage; and
 - monotonically ordered lifecycle transitions with timezone-aware timestamps;
 - a local SQLite checkpointer whose thread ID equals the diagnostic run UUID; and
-- retained state history across process and connection lifetimes.
+- retained state history across process and connection lifetimes; and
+- safe continuation of incomplete runs after checkpoint identity, provenance,
+  lifecycle, and next-operation validation.
 
 The remaining persistence work should add:
 
 - workflow, classifier, prompt, and model versions when applicable;
-- safe resume and the next permitted operation;
 - evidence references;
 - approval state;
 - error or interruption information; and
@@ -213,9 +221,12 @@ instead of LangGraph's permissive fallback. This keeps restart behavior compatib
 with strict MessagePack handling and limits dynamic type reconstruction to the
 models the diagnostic graph is designed to persist.
 
-The new-run CLI rejects an existing checkpoint thread until resume semantics are
-implemented. The saved history remains available to LangGraph state APIs and is not
-deleted by this guard.
+The new-run CLI rejects an existing checkpoint thread. Explicit `--resume` requires
+the original run ID and repository, rejects completed or changed runs, and continues
+only from an allowlisted non-side-effecting pending node. A checkpoint whose next
+node is test execution is rejected until execution replay protection is implemented.
+The saved history remains available to LangGraph state APIs and is not deleted by
+these guards.
 
 Time-travel execution must create a new branch without deleting the original run.
 Returning to a checkpoint does not reverse real-world side effects. Any replayable
@@ -225,6 +236,8 @@ The run and repository provenance decision is recorded in
 [`decisions/004-stable-run-and-repository-provenance.md`](decisions/004-stable-run-and-repository-provenance.md).
 The local checkpoint decision is recorded in
 [`decisions/005-local-sqlite-checkpoints.md`](decisions/005-local-sqlite-checkpoints.md).
+The safe resume boundary is recorded in
+[`decisions/006-safe-checkpoint-resume.md`](decisions/006-safe-checkpoint-resume.md).
 
 ## Planned Streaming and Observability
 
