@@ -30,6 +30,7 @@ The initial release focuses on:
 - Stable run identity and explicit lifecycle stages
 - Agent-Ops and target-repository version provenance
 - Durable local SQLite checkpoints and retained graph history
+- Safe resume from incomplete, non-side-effecting checkpoints
 
 Failure classification is deterministic and local-first. Explicit execution
 signals first produce broad outcomes, then high-confidence markers refine
@@ -105,9 +106,24 @@ inspected. This preserves read-only target inspection and prevents the database 
 changing its own repository snapshot. On POSIX systems, newly opened database files
 are restricted to the current user.
 
-Completed state and super-step history survive process restarts. Safe resume and
-time-travel commands are not implemented yet; until they are, the CLI rejects a run
-ID that already has checkpoint history rather than silently replaying it.
+Completed state and super-step history survive process restarts. Resume an
+incomplete run by supplying its original repository, run ID, and checkpoint database:
+
+```bash
+python -m agent_ops /path/to/repository \
+  --resume \
+  --run-id <uuid> \
+  --checkpoint-db /path/outside/repository/checkpoints.sqlite3
+```
+
+Resume validates the run identity, repository path, content snapshot, lifecycle
+status, and pending graph operation before continuing without new graph input. It
+rejects completed runs, changed repositories, unknown operations, and checkpoints
+that would rerun test execution. `--run-tests` cannot be combined with `--resume`;
+the original execution intent is retained in checkpoint state.
+
+The new-run path continues to reject existing run IDs. Complete side-effect replay
+protection and time-travel forks are not implemented yet.
 
 ## Deterministic Evaluation
 

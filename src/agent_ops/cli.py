@@ -11,7 +11,12 @@ from agent_ops.models import (
     DiagnosticReport,
     DiagnosticRunStatus,
 )
-from agent_ops.workflow import build_checkpoint_config, open_sqlite_diagnostic_graph
+from agent_ops.workflow import (
+    ResumeCheckpointError,
+    build_checkpoint_config,
+    open_sqlite_diagnostic_graph,
+    validate_resume_checkpoint,
+)
 from agent_ops.workflow.state import AgentOpsState
 
 
@@ -44,6 +49,11 @@ def build_parser() -> argparse.ArgumentParser:
             "SQLite checkpoint database. Defaults to "
             "$AGENT_OPS_HOME/checkpoints.sqlite3 or ~/.agent-ops/checkpoints.sqlite3."
         ),
+    )
+    parser.add_argument(
+        "--resume",
+        action="store_true",
+        help="Resume an incomplete run from its last safe checkpoint.",
     )
     return parser
 
@@ -81,9 +91,15 @@ def main(argv: Sequence[str] | None = None) -> None:
     parser = build_parser()
     args = parser.parse_args(argv)
 
+    if args.resume and args.run_id is None:
+        parser.error("--resume requires an explicit --run-id.")
+    if args.resume and args.run_tests:
+        parser.error("--run-tests cannot be combined with --resume.")
+
     run_id = args.run_id or uuid4()
+    repository_path = Path(args.repository_path).expanduser().resolve()
     input_state: AgentOpsState = {
-        "repository_path": args.repository_path,
+        "repository_path": str(repository_path),
         "run_tests": args.run_tests,
         "run_id": run_id,
     }
@@ -91,15 +107,28 @@ def main(argv: Sequence[str] | None = None) -> None:
 
     with open_sqlite_diagnostic_graph(
         args.checkpoint_db,
-        repository_path=args.repository_path,
+        repository_path=str(repository_path),
     ) as graph:
-        if graph.get_state(graph_config).values:
+        checkpoint = graph.get_state(graph_config)
+        if args.resume:
+            try:
+                validate_resume_checkpoint(
+                    checkpoint.values,
+                    checkpoint.next,
+                    repository_path=repository_path,
+                    run_id=run_id,
+                )
+            except ResumeCheckpointError as error:
+                parser.error(str(error))
+
+            state = graph.invoke(None, graph_config)
+        elif checkpoint.values:
             parser.error(
                 "Checkpoint history already exists for this run ID; "
-                "resume is not supported by this command yet."
+                "use --resume only for an incomplete run."
             )
-
-        state = graph.invoke(input_state, graph_config)
+        else:
+            state = graph.invoke(input_state, graph_config)
 
     report = build_diagnostic_report(state)
 

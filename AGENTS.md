@@ -41,10 +41,11 @@ include:
 * Stable diagnostic run identifiers and explicit lifecycle stages
 * Agent-Ops version, target Git revision, and target content-snapshot provenance
 * Local SQLite checkpoints with retained super-step history
+* Safe resume from incomplete, non-side-effecting checkpoints
 
-The remaining Phase 2 work is safe resume, checkpoint-history query interfaces,
-time-travel forks, and complete replay protection. Do not assume that these planned
-features already exist.
+The remaining Phase 2 work is checkpoint-history query interfaces, time-travel
+forks, and complete replay protection. Do not assume that these planned features
+already exist.
 
 Planned later capabilities may include:
 
@@ -112,6 +113,13 @@ Parse CLI arguments
         ↓
 Open the local SQLite checkpointer
         ↓
+        ├── explicit --resume → validate checkpoint identity, provenance,
+        │                       lifecycle, and pending operation
+        │                               ↓
+        │                       continue without new graph input
+        │
+        └── new run
+                ↓
 Initialize a stable diagnostic run
         ↓
 Scan the target repository
@@ -142,8 +150,9 @@ where practical and covered by CLI tests.
 The CLI uses the diagnostic run UUID as its LangGraph thread ID and checkpoints each
 super-step to SQLite. The default database is outside the target repository under
 `$AGENT_OPS_HOME` or `~/.agent-ops`. A checkpoint path inside the inspected
-repository must be rejected. Until safe resume is implemented, an existing thread
-ID must not be silently replayed by the new-run command.
+repository must be rejected. The new-run command rejects existing thread IDs.
+Explicit resume requires the original run ID and repository, and it must reject any
+checkpoint that would replay test execution until complete replay protection exists.
 
 The CLI entry point is:
 

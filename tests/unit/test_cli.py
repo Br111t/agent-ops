@@ -29,6 +29,8 @@ from agent_ops.models import (
 from agent_ops.models import (
     TestResultSummary as ResultSummary,
 )
+from agent_ops.workflow import ResumeCheckpointError
+from agent_ops.workflow.state import AgentOpsState
 
 RUN_ID = UUID("8ba9fe08-23c7-4eb0-8290-610dd0075e20")
 STARTED_AT = datetime(2026, 7, 19, 12, 0, tzinfo=UTC)
@@ -444,6 +446,98 @@ def test_cli_rejects_existing_checkpoint_thread(
 
     assert error.value.code == 2
     assert "Checkpoint history already exists" in capsys.readouterr().err
+    graph.invoke.assert_not_called()
+
+
+def test_cli_resumes_existing_safe_checkpoint(
+    tmp_path: Path,
+    repository_profile: RepositoryProfile,
+    framework_profile: FrameworkProfile,
+    completed_run: DiagnosticRun,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """An explicit resume should continue with no new graph input."""
+    persisted_state: AgentOpsState = {
+        "repository_path": str(tmp_path),
+        "run_tests": False,
+        "run_id": RUN_ID,
+    }
+    resumed_state: AgentOpsState = {
+        **persisted_state,
+        "repository_profile": repository_profile,
+        "framework_profile": framework_profile,
+        "run": completed_run,
+    }
+    graph = Mock()
+    open_graph = _install_graph(monkeypatch, graph)
+    graph.get_state.return_value.values = persisted_state
+    graph.get_state.return_value.next = ("inspect_repository",)
+    graph.invoke.return_value = resumed_state
+    validate_resume = Mock()
+    monkeypatch.setattr("agent_ops.cli.validate_resume_checkpoint", validate_resume)
+
+    main([str(tmp_path), "--resume", "--run-id", str(RUN_ID)])
+
+    validate_resume.assert_called_once_with(
+        persisted_state,
+        ("inspect_repository",),
+        repository_path=tmp_path,
+        run_id=RUN_ID,
+    )
+    graph.invoke.assert_called_once_with(None, _graph_config())
+    open_graph.assert_called_once_with(None, repository_path=str(tmp_path))
+    assert json.loads(capsys.readouterr().out)["run"]["status"] == "completed"
+
+
+def test_cli_resume_requires_explicit_run_id(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Resume cannot generate a new identity for unknown checkpoint state."""
+    with pytest.raises(SystemExit) as error:
+        main([str(tmp_path), "--resume"])
+
+    assert error.value.code == 2
+    assert "--resume requires an explicit --run-id" in capsys.readouterr().err
+
+
+def test_cli_resume_rejects_run_tests_flag(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Resume must use persisted intent instead of accepting new execution intent."""
+    with pytest.raises(SystemExit) as error:
+        main([str(tmp_path), "--resume", "--run-tests", "--run-id", str(RUN_ID)])
+
+    assert error.value.code == 2
+    assert "--run-tests cannot be combined with --resume" in capsys.readouterr().err
+
+
+def test_cli_reports_unsafe_resume_checkpoint(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Resume validation errors should become stable CLI usage errors."""
+    graph = Mock()
+    _install_graph(monkeypatch, graph)
+    graph.get_state.return_value.values = {
+        "repository_path": str(tmp_path),
+        "run_tests": True,
+        "run_id": RUN_ID,
+    }
+    graph.get_state.return_value.next = ("execute_tests",)
+    monkeypatch.setattr(
+        "agent_ops.cli.validate_resume_checkpoint",
+        Mock(side_effect=ResumeCheckpointError("Unsafe checkpoint.")),
+    )
+
+    with pytest.raises(SystemExit) as error:
+        main([str(tmp_path), "--resume", "--run-id", str(RUN_ID)])
+
+    assert error.value.code == 2
+    assert "Unsafe checkpoint" in capsys.readouterr().err
     graph.invoke.assert_not_called()
 
 
