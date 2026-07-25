@@ -17,7 +17,7 @@ Rather than applying changes autonomously, Agent-Ops begins with a read-only dia
 ## Project Status
 
 **Status:** Active development  
-**Current phase:** Phase 2 durable diagnostic runs in progress
+**Current phase:** Phase 2 durable diagnostic runs complete
 
 The initial release focuses on:
 
@@ -33,6 +33,7 @@ The initial release focuses on:
 - Safe resume from incomplete, non-side-effecting checkpoints
 - Read-only checkpoint-history query contracts
 - Invocation-scoped approval for new and replayed test execution
+- Safe time-travel checkpoint forks with immutable source lineage
 
 Failure classification is deterministic and local-first. Explicit execution
 signals first produce broad outcomes, then high-confidence markers refine
@@ -137,8 +138,7 @@ python -m agent_ops /path/to/repository \
 The approval is held only in immutable runtime context and expires when the
 invocation finishes. The `execute_tests` node also checks it directly. A checkpoint
 after test execution can resume deterministic parsing and analysis without this
-flag. The new-run path continues to reject existing run IDs. Time-travel forks are
-not implemented yet.
+flag. The new-run path continues to reject existing run IDs.
 
 Query the retained checkpoint history for an existing run without resuming or
 executing the workflow:
@@ -161,8 +161,43 @@ python -m agent_ops /path/to/repository \
   --run-id <uuid>
 ```
 
-History mode is read-only and cannot be combined with `--run-tests` or `--resume`.
-An unknown run ID returns a well-formed result with zero checkpoints.
+History mode is read-only and cannot be combined with `--run-tests`, `--resume`, or
+`--fork`. An unknown run ID returns a well-formed result with zero checkpoints.
+
+Fork one historical checkpoint into a separate diagnostic run:
+
+```bash
+python -m agent_ops /path/to/repository \
+  --fork \
+  --run-id <source-run-uuid> \
+  --checkpoint-id <source-checkpoint-id> \
+  --fork-run-id <new-run-uuid> \
+  --checkpoint-db /path/outside/repository/checkpoints.sqlite3
+```
+
+`--fork-run-id` is optional; Agent-Ops generates the new run UUID when it is
+omitted. The selected checkpoint must contain an initialized, running lifecycle
+state and a supported pending operation. Agent-Ops validates its source identity,
+repository path, content snapshot when available, required state, lifecycle stage,
+and pending operation before copying it into a new checkpoint thread. The source
+history is never updated or deleted.
+
+The forked report and checkpoint history identify their origin through
+`run.forked_from.source_run_id` and
+`run.forked_from.source_checkpoint_id`. Forking from a point that can reach test
+execution requires renewed approval:
+
+```bash
+python -m agent_ops /path/to/repository \
+  --fork \
+  --run-id <source-run-uuid> \
+  --checkpoint-id <source-checkpoint-id> \
+  --approve-test-replay
+```
+
+Returning to a checkpoint does not undo test or external side effects that already
+occurred. A post-execution fork can reuse captured evidence and continue
+deterministic analysis without replay approval.
 
 ## Deterministic Evaluation
 
@@ -223,9 +258,9 @@ versioning, and promotion controls in the
 ## Target Direction
 
 Later phases may add evidence-supported recommendations, human-approved candidate
-corrections, sandbox verification, checkpoint resume and time travel, streaming,
-expanded artifact analysis, and optional specialist agents. These capabilities will
-be added only after their safety and evaluation contracts are established.
+corrections, sandbox verification, streaming, expanded artifact analysis, and
+optional specialist agents. These capabilities will be added only after their
+safety and evaluation contracts are established.
 
 ## Design Documentation
 

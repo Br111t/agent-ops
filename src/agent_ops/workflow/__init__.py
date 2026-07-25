@@ -6,6 +6,7 @@ from agent_ops.workflow.checkpointing import (
     open_sqlite_diagnostic_graph,
     resolve_checkpoint_database_path,
 )
+from agent_ops.workflow.fork import ForkCheckpointError, create_checkpoint_fork
 from agent_ops.workflow.graph import build_diagnostic_graph
 from agent_ops.workflow.history import CheckpointHistoryError, query_checkpoint_history
 from agent_ops.workflow.resume import ResumeCheckpointError, validate_resume_checkpoint
@@ -19,10 +20,12 @@ __all__ = [
     "AgentOpsRuntimeContext",
     "AgentOpsState",
     "CheckpointHistoryError",
+    "ForkCheckpointError",
     "ResumeCheckpointError",
     "TestExecutionApprovalError",
     "build_checkpoint_config",
     "build_diagnostic_graph",
+    "create_checkpoint_fork",
     "get_default_checkpoint_database_path",
     "open_sqlite_diagnostic_graph",
     "query_checkpoint_history",

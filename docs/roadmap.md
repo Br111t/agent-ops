@@ -63,7 +63,7 @@ evaluation decision is recorded in
 
 ## Phase 2: Durable Diagnostic Runs
 
-**Status:** In progress
+**Status:** Complete
 
 **Goal:** Resume long-running work without repeating completed diagnostic steps.
 
@@ -106,12 +106,16 @@ Implemented foundation:
 - a read-only checkpoint-history CLI with stable JSON output and an optional
   positive result limit; and
 - invocation-scoped test-execution approval enforced at both resume validation and
-  the side-effecting node, including transitive paths through predecessor nodes.
+  the side-effecting node, including transitive paths through predecessor nodes; and
+- exact-checkpoint time-travel forks that create a separate run and checkpoint
+  thread, retain immutable source lineage, preserve the original history, validate
+  repository and lifecycle safety, and reuse renewed replay approval when a fork can
+  reach test execution.
 
-Time-travel forks remain to be implemented. The new-run CLI rejects thread IDs with
-existing checkpoint history. Resume requires renewed `--approve-test-replay`
-authorization whenever its pending path may reach test execution; persisted
-execution intent alone cannot authorize a later invocation.
+The new-run CLI rejects thread IDs with existing checkpoint history. Resume and fork
+require renewed `--approve-test-replay` authorization whenever their pending path
+may reach test execution; persisted execution intent alone cannot authorize a later
+invocation.
 
 ## Phase 3: Human-Reviewed Recommendations and Corrections
 

@@ -100,6 +100,7 @@ def _build_checkpoint_record(
             created_at=snapshot.created_at,
             run_status=run.status if run is not None else None,
             run_stage=run.stage if run is not None else None,
+            forked_from=run.forked_from if run is not None else None,
             next_nodes=snapshot.next,
         )
     except ValidationError as error:

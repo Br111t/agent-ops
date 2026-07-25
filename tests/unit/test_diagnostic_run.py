@@ -9,6 +9,7 @@ from pydantic import ValidationError
 
 from agent_ops.models import (
     DiagnosticRun,
+    DiagnosticRunFork,
     DiagnosticRunStage,
     DiagnosticRunStatus,
 )
@@ -17,6 +18,7 @@ RUN_ID = UUID("8ba9fe08-23c7-4eb0-8290-610dd0075e20")
 STARTED_AT = datetime(2026, 7, 19, 12, 0, tzinfo=UTC)
 SNAPSHOT_SHA256 = "a" * 64
 GIT_COMMIT_SHA = "b" * 40
+FORK_RUN_ID = UUID("00918f6e-57ad-49fe-8e85-51801ac11a85")
 
 
 def test_diagnostic_run_preserves_supplied_identity() -> None:
@@ -117,6 +119,48 @@ def test_diagnostic_run_validates_repository_identifiers() -> None:
             snapshot_sha256="not-a-sha256",
             git_commit_sha="not-a-git-sha",
             recorded_at=STARTED_AT + timedelta(seconds=1),
+        )
+
+
+def test_diagnostic_run_fork_creates_new_identity_and_lineage() -> None:
+    """A fork should retain source state while starting an independent lifecycle."""
+    source = _started_run().transition(
+        DiagnosticRunStage.REPOSITORY_INSPECTION,
+        transitioned_at=STARTED_AT + timedelta(seconds=1),
+    )
+    forked_at = STARTED_AT + timedelta(seconds=2)
+
+    forked = source.fork(
+        run_id=FORK_RUN_ID,
+        source_checkpoint_id="checkpoint-source",
+        forked_at=forked_at,
+    )
+
+    assert forked.run_id == FORK_RUN_ID
+    assert forked.status is DiagnosticRunStatus.RUNNING
+    assert forked.stage is DiagnosticRunStage.REPOSITORY_INSPECTION
+    assert forked.started_at == forked_at
+    assert forked.updated_at == forked_at
+    assert forked.finished_at is None
+    assert forked.provenance == source.provenance
+    assert forked.forked_from == DiagnosticRunFork(
+        source_run_id=RUN_ID,
+        source_checkpoint_id="checkpoint-source",
+    )
+    assert source.forked_from is None
+
+
+def test_diagnostic_run_rejects_self_fork_lineage() -> None:
+    """Fork lineage cannot identify the new run as its own source."""
+    with pytest.raises(ValidationError, match="cannot be forked from itself"):
+        DiagnosticRun.model_validate(
+            {
+                **_started_run().model_dump(),
+                "forked_from": {
+                    "source_run_id": RUN_ID,
+                    "source_checkpoint_id": "checkpoint-source",
+                },
+            }
         )
 
 

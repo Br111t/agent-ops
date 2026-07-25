@@ -22,9 +22,8 @@ During an active discussion, newer code, diffs, or corrections supplied by the u
 
 ## Current Development Phase
 
-The deterministic diagnostic foundation and Phase 1 evaluation baseline are
-complete. Phase 2 durable diagnostic runs are in progress. Implemented foundations
-include:
+The deterministic diagnostic foundation, Phase 1 evaluation baseline, and Phase 2
+durable diagnostic runs are complete. Implemented foundations include:
 
 * Repository discovery and inspection
 * Test-framework detection
@@ -45,9 +44,7 @@ include:
 * Read-only checkpoint-history query models and workflow interface
 * Structured, read-only checkpoint-history CLI output
 * Invocation-scoped approval for new and replayed test execution
-
-The remaining Phase 2 work is time-travel forks. Do not assume that this planned
-feature already exists.
+* Safe time-travel checkpoint forks with immutable source lineage
 
 Planned later capabilities may include:
 
@@ -117,6 +114,12 @@ Open the local SQLite checkpointer
         ↓
         ├── explicit --history → return retained checkpoint summaries
         │
+        ├── explicit --fork → validate one historical checkpoint
+        │                           ↓
+        │                   create a separate run and thread
+        │                           ↓
+        │                   continue from its pending operation
+        │
         ├── explicit --resume → validate checkpoint identity, provenance,
         │                       lifecycle, and pending operation
         │                               ↓
@@ -159,7 +162,10 @@ Explicit resume requires the original run ID and repository, and it must reject 
 checkpoint that may reach test execution unless the current invocation supplies
 renewed `--approve-test-replay` authorization. The execution node must also enforce
 the invocation-scoped runtime permission so CLI validation cannot be the only safety
-boundary.
+boundary. A fork selects an exact checkpoint from a source run, copies it into a new
+run-scoped thread, records immutable source-run and source-checkpoint lineage, and
+continues without mutating the source history. Forks that may reach test execution
+require the same renewed approval.
 
 The CLI entry point is:
 
