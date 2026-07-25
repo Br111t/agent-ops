@@ -52,17 +52,22 @@ flowchart TD
 ### Command-line interface
 
 `agent_ops.cli` parses the repository path, the explicit `--run-tests` option, an
-optional caller-supplied `--run-id`, and explicit `--resume` intent. It invokes the
-compiled graph, builds an immutable public diagnostic report, and serializes the
-supported result fields as JSON. Optional report sections are emitted only when the
-graph produced them. The default path does not run tests. `--checkpoint-db` can
-override the durable local database without allowing it to reside inside the
-inspected repository.
+optional caller-supplied `--run-id`, and explicit `--resume` or `--history` intent.
+It either invokes the compiled graph and builds an immutable public diagnostic
+report or returns immutable checkpoint summaries, then serializes the supported
+result fields as JSON. Optional report sections are emitted only when the graph
+produced them. The default path does not run tests. `--checkpoint-db` can override
+the durable local database without allowing it to reside inside the inspected
+repository.
 
 Resume requires an existing run ID and continues the graph with no new input only
 after validating checkpoint identity, repository path and snapshot, lifecycle, and
 pending operations. It cannot be combined with `--run-tests` because execution
 intent comes from persisted state.
+
+History also requires an existing run ID. It performs a read-only, newest-first
+query and cannot be combined with new or resumed graph execution. An optional
+positive limit bounds the number of returned checkpoints.
 
 ### Workflow orchestration
 
@@ -212,7 +217,6 @@ The remaining persistence work should add:
 - evidence references;
 - approval state;
 - error or interruption information; and
-- a user-facing checkpoint-history command; and
 - fork metadata.
 
 SQLite is the implemented local checkpointer. Its connection is scoped to the graph

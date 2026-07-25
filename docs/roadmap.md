@@ -102,12 +102,14 @@ Implemented foundation:
   non-side-effecting, with run identity, repository provenance, lifecycle, and
   next-node validation before continuation; and
 - immutable checkpoint-history models and a read-only, newest-first workflow query
-  that validates persisted thread, state, and parent identities.
+  that validates persisted thread, state, and parent identities; and
+- a read-only checkpoint-history CLI with stable JSON output and an optional
+  positive result limit.
 
-A user-facing history command, time-travel forks, and complete replay protection
-remain to be implemented. The new-run CLI rejects thread IDs with existing
-checkpoint history. Resume rejects checkpoints whose next operation is test
-execution until that side-effecting node has explicit replay protection.
+Time-travel forks and complete replay protection remain to be implemented. The
+new-run CLI rejects thread IDs with existing checkpoint history. Resume rejects
+checkpoints whose next operation is test execution until that side-effecting node
+has explicit replay protection.
 
 ## Phase 3: Human-Reviewed Recommendations and Corrections
 

@@ -12,9 +12,11 @@ from agent_ops.models import (
     DiagnosticRunStatus,
 )
 from agent_ops.workflow import (
+    CheckpointHistoryError,
     ResumeCheckpointError,
     build_checkpoint_config,
     open_sqlite_diagnostic_graph,
+    query_checkpoint_history,
     validate_resume_checkpoint,
 )
 from agent_ops.workflow.state import AgentOpsState
@@ -55,6 +57,16 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Resume an incomplete run from its last safe checkpoint.",
     )
+    parser.add_argument(
+        "--history",
+        action="store_true",
+        help="Return retained checkpoint history for an existing run.",
+    )
+    parser.add_argument(
+        "--history-limit",
+        type=int,
+        help="Maximum number of newest checkpoints to return with --history.",
+    )
     return parser
 
 
@@ -93,8 +105,18 @@ def main(argv: Sequence[str] | None = None) -> None:
 
     if args.resume and args.run_id is None:
         parser.error("--resume requires an explicit --run-id.")
+    if args.history and args.run_id is None:
+        parser.error("--history requires an explicit --run-id.")
     if args.resume and args.run_tests:
         parser.error("--run-tests cannot be combined with --resume.")
+    if args.history and args.run_tests:
+        parser.error("--run-tests cannot be combined with --history.")
+    if args.history and args.resume:
+        parser.error("--resume cannot be combined with --history.")
+    if args.history_limit is not None and not args.history:
+        parser.error("--history-limit requires --history.")
+    if args.history_limit is not None and args.history_limit < 1:
+        parser.error("--history-limit must be at least 1.")
 
     run_id = args.run_id or uuid4()
     repository_path = Path(args.repository_path).expanduser().resolve()
@@ -109,6 +131,19 @@ def main(argv: Sequence[str] | None = None) -> None:
         args.checkpoint_db,
         repository_path=str(repository_path),
     ) as graph:
+        if args.history:
+            try:
+                history = query_checkpoint_history(
+                    graph,
+                    run_id,
+                    limit=args.history_limit,
+                )
+            except CheckpointHistoryError as error:
+                parser.error(str(error))
+
+            print(json.dumps(history.model_dump(mode="json"), indent=2))
+            return
+
         checkpoint = graph.get_state(graph_config)
         if args.resume:
             try:

@@ -22,6 +22,7 @@ def _run_agent_ops(
     *,
     run_id: UUID = RUN_ID,
     resume: bool = False,
+    history: bool = False,
 ) -> subprocess.CompletedProcess[str]:
     environment = os.environ.copy()
     environment["PYTHONIOENCODING"] = "cp1252"
@@ -44,7 +45,10 @@ def _run_agent_ops(
         "--checkpoint-db",
         str(database_path),
     ]
-    command.append("--resume" if resume else "--run-tests")
+    if history:
+        command.append("--history")
+    else:
+        command.append("--resume" if resume else "--run-tests")
 
     return subprocess.run(
         command,
@@ -89,6 +93,17 @@ def test_real_cli_persists_demo_run_and_rejects_duplicate(tmp_path: Path) -> Non
     assert persisted_state.values["run"].status is DiagnosticRunStatus.COMPLETED
     assert persisted_state.next == ()
     assert len(initial_history) >= 5
+
+    history_result = _run_agent_ops(database_path, history=True)
+
+    assert history_result.returncode == 0, history_result.stderr
+    history = json.loads(history_result.stdout)
+    assert history["run_id"] == str(RUN_ID)
+    assert history["checkpoint_count"] == len(initial_history)
+    assert len(history["checkpoints"]) == len(initial_history)
+    assert history["checkpoints"][0]["run_status"] == "completed"
+    assert history["checkpoints"][0]["next_nodes"] == []
+    assert history["checkpoints"][-1]["run_status"] is None
 
     duplicate_run = _run_agent_ops(database_path)
 

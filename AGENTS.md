@@ -43,10 +43,10 @@ include:
 * Local SQLite checkpoints with retained super-step history
 * Safe resume from incomplete, non-side-effecting checkpoints
 * Read-only checkpoint-history query models and workflow interface
+* Structured, read-only checkpoint-history CLI output
 
-The remaining Phase 2 work is a user-facing checkpoint-history command, time-travel
-forks, and complete replay protection. Do not assume that these planned features
-already exist.
+The remaining Phase 2 work is time-travel forks and complete replay protection. Do
+not assume that these planned features already exist.
 
 Planned later capabilities may include:
 
@@ -114,6 +114,8 @@ Parse CLI arguments
         ↓
 Open the local SQLite checkpointer
         ↓
+        ├── explicit --history → return retained checkpoint summaries
+        │
         ├── explicit --resume → validate checkpoint identity, provenance,
         │                       lifecycle, and pending operation
         │                               ↓

@@ -124,9 +124,31 @@ that would rerun test execution. `--run-tests` cannot be combined with `--resume
 the original execution intent is retained in checkpoint state.
 
 The new-run path continues to reject existing run IDs. Complete side-effect replay
-protection and time-travel forks are not implemented yet. An internal read-only query
-interface converts retained LangGraph state into stable, immutable checkpoint
-summaries ordered newest first. A user-facing history command is planned next.
+protection and time-travel forks are not implemented yet.
+
+Query the retained checkpoint history for an existing run without resuming or
+executing the workflow:
+
+```bash
+python -m agent_ops /path/to/repository \
+  --history \
+  --run-id <uuid> \
+  --checkpoint-db /path/outside/repository/checkpoints.sqlite3
+```
+
+The command returns stable JSON ordered newest first. Each checkpoint includes its
+checkpoint and parent identifiers, super-step, source, timestamp, lifecycle state,
+and pending nodes. Limit the result to the newest checkpoints when needed:
+
+```bash
+python -m agent_ops /path/to/repository \
+  --history \
+  --history-limit 20 \
+  --run-id <uuid>
+```
+
+History mode is read-only and cannot be combined with `--run-tests` or `--resume`.
+An unknown run ID returns a well-formed result with zero checkpoints.
 
 ## Deterministic Evaluation
 

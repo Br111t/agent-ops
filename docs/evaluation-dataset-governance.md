@@ -144,7 +144,7 @@ classifier marker or changes the trusted category.
 Normalize paths when their structure matters. For example:
 
 ```text
-/home/responsible_party/private-product/tests/test_checkout.py
+/home/responsible-party/private-product/tests/test_checkout.py
 ```
 
 can become:
