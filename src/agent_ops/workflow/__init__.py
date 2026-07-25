@@ -7,16 +7,19 @@ from agent_ops.workflow.checkpointing import (
     resolve_checkpoint_database_path,
 )
 from agent_ops.workflow.graph import build_diagnostic_graph
+from agent_ops.workflow.history import CheckpointHistoryError, query_checkpoint_history
 from agent_ops.workflow.resume import ResumeCheckpointError, validate_resume_checkpoint
 from agent_ops.workflow.state import AgentOpsState
 
 __all__ = [
     "AgentOpsState",
+    "CheckpointHistoryError",
     "ResumeCheckpointError",
     "build_checkpoint_config",
     "build_diagnostic_graph",
     "get_default_checkpoint_database_path",
     "open_sqlite_diagnostic_graph",
+    "query_checkpoint_history",
     "resolve_checkpoint_database_path",
     "validate_resume_checkpoint",
 ]

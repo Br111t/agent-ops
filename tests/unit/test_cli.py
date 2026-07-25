@@ -11,6 +11,9 @@ import pytest
 
 from agent_ops.cli import build_diagnostic_report, main
 from agent_ops.models import (
+    DiagnosticCheckpointHistory,
+    DiagnosticCheckpointRecord,
+    DiagnosticCheckpointSource,
     DiagnosticRun,
     FailureCategory,
     FailureClassification,
@@ -29,7 +32,7 @@ from agent_ops.models import (
 from agent_ops.models import (
     TestResultSummary as ResultSummary,
 )
-from agent_ops.workflow import ResumeCheckpointError
+from agent_ops.workflow import CheckpointHistoryError, ResumeCheckpointError
 from agent_ops.workflow.state import AgentOpsState
 
 RUN_ID = UUID("8ba9fe08-23c7-4eb0-8290-610dd0075e20")
@@ -428,6 +431,145 @@ def test_cli_passes_custom_checkpoint_database_to_graph(
         repository_path=str(tmp_path),
     )
     assert json.loads(capsys.readouterr().out)["run"]["status"] == "completed"
+
+
+def test_cli_returns_structured_checkpoint_history(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """History mode should query one run without invoking the diagnostic graph."""
+    checkpoint_path = tmp_path.parent / "agent-ops-state.sqlite3"
+    history = DiagnosticCheckpointHistory(
+        run_id=RUN_ID,
+        checkpoints=(
+            DiagnosticCheckpointRecord(
+                run_id=RUN_ID,
+                checkpoint_id="checkpoint-2",
+                parent_checkpoint_id="checkpoint-1",
+                step=1,
+                source=DiagnosticCheckpointSource.LOOP,
+                created_at=STARTED_AT,
+                next_nodes=("inspect_repository",),
+            ),
+        ),
+    )
+    graph = Mock()
+    open_graph = _install_graph(monkeypatch, graph)
+    query_history = Mock(return_value=history)
+    monkeypatch.setattr("agent_ops.cli.query_checkpoint_history", query_history)
+
+    main(
+        [
+            str(tmp_path),
+            "--history",
+            "--history-limit",
+            "1",
+            "--run-id",
+            str(RUN_ID),
+            "--checkpoint-db",
+            str(checkpoint_path),
+        ]
+    )
+
+    output = json.loads(capsys.readouterr().out)
+
+    query_history.assert_called_once_with(graph, RUN_ID, limit=1)
+    graph.get_state.assert_not_called()
+    graph.invoke.assert_not_called()
+    open_graph.assert_called_once_with(
+        checkpoint_path,
+        repository_path=str(tmp_path),
+    )
+    assert output == history.model_dump(mode="json")
+    assert output["checkpoint_count"] == 1
+    assert output["checkpoints"][0]["next_nodes"] == ["inspect_repository"]
+
+
+def test_cli_history_requires_explicit_run_id(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """History queries cannot generate a new run identity."""
+    with pytest.raises(SystemExit) as error:
+        main([str(tmp_path), "--history"])
+
+    assert error.value.code == 2
+    assert "--history requires an explicit --run-id" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize(
+    ("arguments", "message"),
+    [
+        (("--run-tests",), "--run-tests cannot be combined with --history"),
+        (("--resume",), "--resume cannot be combined with --history"),
+    ],
+)
+def test_cli_history_rejects_execution_modes(
+    tmp_path: Path,
+    arguments: tuple[str, ...],
+    message: str,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Read-only history queries must not start or resume graph execution."""
+    with pytest.raises(SystemExit) as error:
+        main(
+            [
+                str(tmp_path),
+                "--history",
+                "--run-id",
+                str(RUN_ID),
+                *arguments,
+            ]
+        )
+
+    assert error.value.code == 2
+    assert message in capsys.readouterr().err
+
+
+@pytest.mark.parametrize(
+    ("arguments", "message"),
+    [
+        (("--history-limit", "2"), "--history-limit requires --history"),
+        (
+            ("--history", "--run-id", str(RUN_ID), "--history-limit", "0"),
+            "--history-limit must be at least 1",
+        ),
+    ],
+)
+def test_cli_rejects_invalid_history_limit(
+    tmp_path: Path,
+    arguments: tuple[str, ...],
+    message: str,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """History limits should be positive and limited to history queries."""
+    with pytest.raises(SystemExit) as error:
+        main([str(tmp_path), *arguments])
+
+    assert error.value.code == 2
+    assert message in capsys.readouterr().err
+
+
+def test_cli_reports_malformed_checkpoint_history(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Invalid persisted history should become a stable CLI usage error."""
+    graph = Mock()
+    _install_graph(monkeypatch, graph)
+    monkeypatch.setattr(
+        "agent_ops.cli.query_checkpoint_history",
+        Mock(side_effect=CheckpointHistoryError("Malformed checkpoint history.")),
+    )
+
+    with pytest.raises(SystemExit) as error:
+        main([str(tmp_path), "--history", "--run-id", str(RUN_ID)])
+
+    assert error.value.code == 2
+    assert "Malformed checkpoint history" in capsys.readouterr().err
+    graph.invoke.assert_not_called()
 
 
 def test_cli_rejects_existing_checkpoint_thread(
