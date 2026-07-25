@@ -35,11 +35,13 @@ from agent_ops.models import (
 from agent_ops.workflow import (
     AgentOpsRuntimeContext,
     CheckpointHistoryError,
+    ForkCheckpointError,
     ResumeCheckpointError,
 )
 from agent_ops.workflow.state import AgentOpsState
 
 RUN_ID = UUID("8ba9fe08-23c7-4eb0-8290-610dd0075e20")
+FORK_RUN_ID = UUID("00918f6e-57ad-49fe-8e85-51801ac11a85")
 STARTED_AT = datetime(2026, 7, 19, 12, 0, tzinfo=UTC)
 SNAPSHOT_SHA256 = "a" * 64
 
@@ -579,6 +581,218 @@ def test_cli_reports_malformed_checkpoint_history(
     graph.invoke.assert_not_called()
 
 
+def test_cli_forks_selected_checkpoint_into_new_run(
+    tmp_path: Path,
+    repository_profile: RepositoryProfile,
+    framework_profile: FrameworkProfile,
+    completed_run: DiagnosticRun,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Fork mode should continue a new thread and expose its source lineage."""
+    forked_run = DiagnosticRun.model_validate(
+        {
+            **completed_run.model_dump(),
+            "run_id": FORK_RUN_ID,
+            "forked_from": {
+                "source_run_id": RUN_ID,
+                "source_checkpoint_id": "checkpoint-source",
+            },
+        }
+    )
+    forked_state: AgentOpsState = {
+        "repository_path": str(tmp_path),
+        "run_tests": False,
+        "run_id": FORK_RUN_ID,
+        "repository_profile": repository_profile,
+        "framework_profile": framework_profile,
+        "run": forked_run,
+    }
+    graph = Mock()
+    graph.invoke.return_value = forked_state
+    open_graph = _install_graph(monkeypatch, graph)
+    create_fork = Mock(return_value=_graph_config(FORK_RUN_ID))
+    monkeypatch.setattr("agent_ops.cli.create_checkpoint_fork", create_fork)
+
+    main(
+        [
+            str(tmp_path),
+            "--fork",
+            "--checkpoint-id",
+            "checkpoint-source",
+            "--run-id",
+            str(RUN_ID),
+            "--fork-run-id",
+            str(FORK_RUN_ID),
+        ]
+    )
+
+    create_fork.assert_called_once_with(
+        graph,
+        source_run_id=RUN_ID,
+        source_checkpoint_id="checkpoint-source",
+        fork_run_id=FORK_RUN_ID,
+        repository_path=tmp_path,
+        test_execution_approved=False,
+    )
+    graph.invoke.assert_called_once_with(
+        None,
+        _graph_config(FORK_RUN_ID),
+        context=_runtime_context(test_execution_approved=False),
+    )
+    open_graph.assert_called_once_with(None, repository_path=str(tmp_path))
+    output = json.loads(capsys.readouterr().out)
+    assert output["run"]["run_id"] == str(FORK_RUN_ID)
+    assert output["run"]["forked_from"] == {
+        "source_run_id": str(RUN_ID),
+        "source_checkpoint_id": "checkpoint-source",
+    }
+
+
+def test_cli_passes_renewed_test_approval_to_checkpoint_fork(
+    tmp_path: Path,
+    repository_profile: RepositoryProfile,
+    framework_profile: FrameworkProfile,
+    completed_run: DiagnosticRun,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Fork replay approval should remain scoped to creation and one invocation."""
+    forked_run = DiagnosticRun.model_validate(
+        {
+            **completed_run.model_dump(),
+            "run_id": FORK_RUN_ID,
+            "forked_from": {
+                "source_run_id": RUN_ID,
+                "source_checkpoint_id": "checkpoint-source",
+            },
+        }
+    )
+    graph = Mock()
+    graph.invoke.return_value = {
+        "repository_path": str(tmp_path),
+        "run_tests": True,
+        "run_id": FORK_RUN_ID,
+        "repository_profile": repository_profile,
+        "framework_profile": framework_profile,
+        "run": forked_run,
+    }
+    _install_graph(monkeypatch, graph)
+    create_fork = Mock(return_value=_graph_config(FORK_RUN_ID))
+    monkeypatch.setattr("agent_ops.cli.create_checkpoint_fork", create_fork)
+
+    main(
+        [
+            str(tmp_path),
+            "--fork",
+            "--checkpoint-id",
+            "checkpoint-source",
+            "--run-id",
+            str(RUN_ID),
+            "--fork-run-id",
+            str(FORK_RUN_ID),
+            "--approve-test-replay",
+        ]
+    )
+
+    assert create_fork.call_args.kwargs["test_execution_approved"] is True
+    assert graph.invoke.call_args.kwargs["context"] == _runtime_context(
+        test_execution_approved=True
+    )
+    assert json.loads(capsys.readouterr().out)["run"]["status"] == "completed"
+
+
+@pytest.mark.parametrize(
+    ("arguments", "message"),
+    [
+        (("--fork",), "--fork requires an explicit source --run-id"),
+        (
+            ("--fork", "--run-id", str(RUN_ID)),
+            "--fork requires an explicit --checkpoint-id",
+        ),
+        (("--checkpoint-id", "checkpoint-source"), "--checkpoint-id requires --fork"),
+        (("--fork-run-id", str(FORK_RUN_ID)), "--fork-run-id requires --fork"),
+        (
+            (
+                "--fork",
+                "--checkpoint-id",
+                "checkpoint-source",
+                "--run-id",
+                str(RUN_ID),
+                "--run-tests",
+            ),
+            "--run-tests cannot be combined with --fork",
+        ),
+        (
+            (
+                "--fork",
+                "--checkpoint-id",
+                "checkpoint-source",
+                "--run-id",
+                str(RUN_ID),
+                "--resume",
+            ),
+            "--resume cannot be combined with --fork",
+        ),
+        (
+            (
+                "--fork",
+                "--checkpoint-id",
+                "checkpoint-source",
+                "--run-id",
+                str(RUN_ID),
+                "--history",
+            ),
+            "--history cannot be combined with --fork",
+        ),
+    ],
+)
+def test_cli_rejects_invalid_fork_arguments(
+    tmp_path: Path,
+    arguments: tuple[str, ...],
+    message: str,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Fork selection and execution flags must remain unambiguous."""
+    with pytest.raises(SystemExit) as error:
+        main([str(tmp_path), *arguments])
+
+    assert error.value.code == 2
+    assert message in capsys.readouterr().err
+
+
+def test_cli_reports_unsafe_checkpoint_fork(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Fork safety failures should become stable CLI usage errors."""
+    graph = Mock()
+    _install_graph(monkeypatch, graph)
+    monkeypatch.setattr(
+        "agent_ops.cli.create_checkpoint_fork",
+        Mock(side_effect=ForkCheckpointError("Unsafe checkpoint fork.")),
+    )
+
+    with pytest.raises(SystemExit) as error:
+        main(
+            [
+                str(tmp_path),
+                "--fork",
+                "--checkpoint-id",
+                "checkpoint-source",
+                "--run-id",
+                str(RUN_ID),
+                "--fork-run-id",
+                str(FORK_RUN_ID),
+            ]
+        )
+
+    assert error.value.code == 2
+    assert "Unsafe checkpoint fork" in capsys.readouterr().err
+    graph.invoke.assert_not_called()
+
+
 def test_cli_rejects_existing_checkpoint_thread(
     tmp_path: Path,
     completed_run: DiagnosticRun,
@@ -772,11 +986,13 @@ def _install_graph(
     return open_graph
 
 
-def _graph_config() -> dict[str, dict[str, str]]:
+def _graph_config(
+    run_id: UUID = RUN_ID,
+) -> dict[str, dict[str, str]]:
     """Return the expected LangGraph thread configuration for the fixed run ID."""
     return {
         "configurable": {
-            "thread_id": str(RUN_ID),
+            "thread_id": str(run_id),
         }
     }
 

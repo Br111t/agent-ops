@@ -11,6 +11,7 @@ from agent_ops.models.diagnostic_report import (
 )
 from agent_ops.models.diagnostic_run import (
     DiagnosticRun,
+    DiagnosticRunFork,
     DiagnosticRunProvenance,
     DiagnosticRunStage,
     DiagnosticRunStatus,
@@ -64,6 +65,7 @@ __all__ = [
     "DiagnosticExecutionReport",
     "DiagnosticReport",
     "DiagnosticRun",
+    "DiagnosticRunFork",
     "DiagnosticRunProvenance",
     "DiagnosticRunStage",
     "DiagnosticRunStatus",

@@ -14,6 +14,7 @@ from langgraph.graph.state import CompiledStateGraph
 from agent_ops.config import get_agent_ops_data_directory
 from agent_ops.models import (
     DiagnosticRun,
+    DiagnosticRunFork,
     DiagnosticRunProvenance,
     DiagnosticRunStage,
     DiagnosticRunStatus,
@@ -31,6 +32,7 @@ from agent_ops.workflow.graph import build_diagnostic_graph
 DEFAULT_CHECKPOINT_DATABASE_FILENAME = "checkpoints.sqlite3"
 TRUSTED_CHECKPOINT_TYPES: tuple[type, ...] = (
     DiagnosticRun,
+    DiagnosticRunFork,
     DiagnosticRunProvenance,
     DiagnosticRunStage,
     DiagnosticRunStatus,
@@ -45,13 +47,21 @@ TRUSTED_CHECKPOINT_TYPES: tuple[type, ...] = (
 )
 
 
-def build_checkpoint_config(run_id: UUID) -> dict[str, dict[str, str]]:
-    """Use the stable diagnostic run UUID as its LangGraph thread identity."""
-    return {
-        "configurable": {
-            "thread_id": str(run_id),
-        }
+def build_checkpoint_config(
+    run_id: UUID,
+    *,
+    checkpoint_id: str | None = None,
+) -> dict[str, dict[str, str]]:
+    """Build a thread configuration with an optional historical checkpoint."""
+    configurable = {
+        "thread_id": str(run_id),
     }
+    if checkpoint_id is not None:
+        if not checkpoint_id:
+            raise ValueError("Checkpoint ID cannot be empty.")
+        configurable["checkpoint_id"] = checkpoint_id
+
+    return {"configurable": configurable}
 
 
 def get_default_checkpoint_database_path() -> Path:

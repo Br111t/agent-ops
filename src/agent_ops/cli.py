@@ -14,9 +14,11 @@ from agent_ops.models import (
 from agent_ops.workflow import (
     AgentOpsRuntimeContext,
     CheckpointHistoryError,
+    ForkCheckpointError,
     ResumeCheckpointError,
     TestExecutionApprovalError,
     build_checkpoint_config,
+    create_checkpoint_fork,
     open_sqlite_diagnostic_graph,
     query_checkpoint_history,
     validate_resume_checkpoint,
@@ -63,6 +65,20 @@ def build_parser() -> argparse.ArgumentParser:
         "--history",
         action="store_true",
         help="Return retained checkpoint history for an existing run.",
+    )
+    parser.add_argument(
+        "--fork",
+        action="store_true",
+        help="Create a new run from one historical checkpoint.",
+    )
+    parser.add_argument(
+        "--checkpoint-id",
+        help="Historical checkpoint to use with --fork.",
+    )
+    parser.add_argument(
+        "--fork-run-id",
+        type=UUID,
+        help="Optional UUID for the new run created by --fork.",
     )
     parser.add_argument(
         "--history-limit",
@@ -114,18 +130,32 @@ def main(argv: Sequence[str] | None = None) -> None:
         parser.error("--resume requires an explicit --run-id.")
     if args.history and args.run_id is None:
         parser.error("--history requires an explicit --run-id.")
+    if args.fork and args.run_id is None:
+        parser.error("--fork requires an explicit source --run-id.")
+    if args.fork and args.checkpoint_id is None:
+        parser.error("--fork requires an explicit --checkpoint-id.")
     if args.resume and args.run_tests:
         parser.error("--run-tests cannot be combined with --resume.")
     if args.history and args.run_tests:
         parser.error("--run-tests cannot be combined with --history.")
     if args.history and args.resume:
         parser.error("--resume cannot be combined with --history.")
+    if args.fork and args.run_tests:
+        parser.error("--run-tests cannot be combined with --fork.")
+    if args.fork and args.resume:
+        parser.error("--resume cannot be combined with --fork.")
+    if args.fork and args.history:
+        parser.error("--history cannot be combined with --fork.")
+    if args.checkpoint_id is not None and not args.fork:
+        parser.error("--checkpoint-id requires --fork.")
+    if args.fork_run_id is not None and not args.fork:
+        parser.error("--fork-run-id requires --fork.")
     if args.history_limit is not None and not args.history:
         parser.error("--history-limit requires --history.")
     if args.history_limit is not None and args.history_limit < 1:
         parser.error("--history-limit must be at least 1.")
-    if args.approve_test_replay and not args.resume:
-        parser.error("--approve-test-replay requires --resume.")
+    if args.approve_test_replay and not (args.resume or args.fork):
+        parser.error("--approve-test-replay requires --resume or --fork.")
 
     run_id = args.run_id or uuid4()
     repository_path = Path(args.repository_path).expanduser().resolve()
@@ -151,6 +181,31 @@ def main(argv: Sequence[str] | None = None) -> None:
                 parser.error(str(error))
 
             print(json.dumps(history.model_dump(mode="json"), indent=2))
+            return
+
+        if args.fork:
+            fork_run_id = args.fork_run_id or uuid4()
+            try:
+                fork_config = create_checkpoint_fork(
+                    graph,
+                    source_run_id=run_id,
+                    source_checkpoint_id=args.checkpoint_id,
+                    fork_run_id=fork_run_id,
+                    repository_path=repository_path,
+                    test_execution_approved=args.approve_test_replay,
+                )
+                state = graph.invoke(
+                    None,
+                    fork_config,
+                    context=AgentOpsRuntimeContext(
+                        test_execution_approved=args.approve_test_replay,
+                    ),
+                )
+            except (ForkCheckpointError, TestExecutionApprovalError) as error:
+                parser.error(str(error))
+
+            report = build_diagnostic_report(state)
+            print(json.dumps(report.to_public_dict(), indent=2))
             return
 
         checkpoint = graph.get_state(graph_config)

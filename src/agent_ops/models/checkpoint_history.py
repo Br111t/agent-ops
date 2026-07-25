@@ -13,7 +13,11 @@ from pydantic import (
     model_validator,
 )
 
-from agent_ops.models.diagnostic_run import DiagnosticRunStage, DiagnosticRunStatus
+from agent_ops.models.diagnostic_run import (
+    DiagnosticRunFork,
+    DiagnosticRunStage,
+    DiagnosticRunStatus,
+)
 
 
 class DiagnosticCheckpointSource(StrEnum):
@@ -41,6 +45,7 @@ class DiagnosticCheckpointRecord(BaseModel):
     created_at: datetime
     run_status: DiagnosticRunStatus | None = None
     run_stage: DiagnosticRunStage | None = None
+    forked_from: DiagnosticRunFork | None = None
     next_nodes: tuple[str, ...] = ()
 
     @field_validator("created_at")

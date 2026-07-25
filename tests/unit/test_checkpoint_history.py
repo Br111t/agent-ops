@@ -65,6 +65,7 @@ def test_query_returns_stable_newest_first_history() -> None:
     assert latest.source is DiagnosticCheckpointSource.LOOP
     assert latest.run_status is DiagnosticRunStatus.RUNNING
     assert latest.run_stage is DiagnosticRunStage.INITIALIZED
+    assert latest.forked_from is None
     assert latest.next_nodes == ("inspect_repository",)
 
     oldest = history.checkpoints[-1]

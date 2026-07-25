@@ -53,6 +53,18 @@ class DiagnosticRunProvenance(BaseModel):
     )
 
 
+class DiagnosticRunFork(BaseModel):
+    """Immutable lineage identifying the checkpoint that created a forked run."""
+
+    model_config = ConfigDict(
+        extra="forbid",
+        frozen=True,
+    )
+
+    source_run_id: UUID
+    source_checkpoint_id: str = Field(min_length=1)
+
+
 class DiagnosticRun(BaseModel):
     """Immutable identity, lifecycle, and provenance for one diagnostic run."""
 
@@ -68,6 +80,7 @@ class DiagnosticRun(BaseModel):
     updated_at: datetime
     finished_at: datetime | None = None
     provenance: DiagnosticRunProvenance
+    forked_from: DiagnosticRunFork | None = None
 
     @field_validator("started_at", "updated_at", "finished_at")
     @classmethod
@@ -111,6 +124,9 @@ class DiagnosticRun(BaseModel):
                 raise ValueError(
                     "A completed diagnostic run requires target repository provenance."
                 )
+
+        if self.forked_from is not None and self.forked_from.source_run_id == self.run_id:
+            raise ValueError("A diagnostic run cannot be forked from itself.")
 
         return self
 
@@ -192,6 +208,35 @@ class DiagnosticRun(BaseModel):
                 **self.model_dump(),
                 "updated_at": recorded_at,
                 "provenance": provenance,
+            }
+        )
+
+    def fork(
+        self,
+        *,
+        run_id: UUID,
+        source_checkpoint_id: str,
+        forked_at: datetime,
+    ) -> "DiagnosticRun":
+        """Create a new running identity from this historical lifecycle state."""
+        if self.status is not DiagnosticRunStatus.RUNNING:
+            raise ValueError("Only a running checkpoint can create a diagnostic fork.")
+
+        if forked_at < self.updated_at:
+            raise ValueError("A diagnostic fork cannot start before its source checkpoint.")
+
+        return type(self).model_validate(
+            {
+                **self.model_dump(),
+                "run_id": run_id,
+                "status": DiagnosticRunStatus.RUNNING,
+                "started_at": forked_at,
+                "updated_at": forked_at,
+                "finished_at": None,
+                "forked_from": DiagnosticRunFork(
+                    source_run_id=self.run_id,
+                    source_checkpoint_id=source_checkpoint_id,
+                ),
             }
         )
 

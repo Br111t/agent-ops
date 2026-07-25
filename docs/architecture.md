@@ -52,13 +52,13 @@ flowchart TD
 ### Command-line interface
 
 `agent_ops.cli` parses the repository path, the explicit `--run-tests` option, an
-optional caller-supplied `--run-id`, and explicit `--resume` or `--history` intent.
-It either invokes the compiled graph and builds an immutable public diagnostic
-report or returns immutable checkpoint summaries, then serializes the supported
-result fields as JSON. Optional report sections are emitted only when the graph
-produced them. The default path does not run tests. `--checkpoint-db` can override
-the durable local database without allowing it to reside inside the inspected
-repository.
+optional caller-supplied `--run-id`, and explicit `--resume`, `--history`, or
+`--fork` intent. It either invokes the compiled graph and builds an immutable public
+diagnostic report or returns immutable checkpoint summaries, then serializes the
+supported result fields as JSON. Optional report sections are emitted only when the
+graph produced them. The default path does not run tests. `--checkpoint-db` can
+override the durable local database without allowing it to reside inside the
+inspected repository.
 
 Resume requires an existing run ID and continues the graph with no new input only
 after validating checkpoint identity, repository path and snapshot, lifecycle, and
@@ -68,6 +68,12 @@ intent comes from persisted state.
 History also requires an existing run ID. It performs a read-only, newest-first
 query and cannot be combined with new or resumed graph execution. An optional
 positive limit bounds the number of returned checkpoints.
+
+Fork mode requires a source run ID and exact checkpoint ID. It creates or accepts a
+separate fork run ID, validates the selected state and continuation path, copies the
+historical state into the new run-scoped thread, and continues without adding
+checkpoints to the source thread. The completed report exposes immutable
+source-run/source-checkpoint lineage. Fork and history modes cannot be combined.
 
 ### Workflow orchestration
 
@@ -100,8 +106,9 @@ SQLite saver and uses the run UUID as the LangGraph thread ID. LangGraph persist
 state snapshot at each super-step. Safe resume is implemented for incomplete runs
 whose pending operations are non-side-effecting. A read-only history query converts
 the retained snapshots into stable Agent-Ops records without exposing mutable graph
-state. Time travel, streaming, and human interrupts remain planned orchestration
-features.
+state. Safe time travel creates an independent run from an exact historical
+checkpoint and preserves the source thread. Streaming and human interrupts remain
+planned orchestration features.
 
 ### Repository intelligence
 
@@ -152,11 +159,12 @@ testable.
 `agent_ops.models` contains immutable Pydantic models for diagnostic run identity,
 lifecycle and provenance, repository profiles, framework detection, execution
 evidence, parsed summaries, normalized evidence, failure classifications, and the
-public diagnostic report. Checkpoint-history models retain the checkpoint and parent
-identifiers, super-step, source, timestamp, lifecycle state, and pending nodes needed
-for read-only debugging. Models forbid unexpected fields where the schema is
-controlled and validate counts, durations, timestamps, identifiers, and confidence
-ranges.
+public diagnostic report. Diagnostic runs may include immutable fork lineage that
+identifies the source run and checkpoint. Checkpoint-history models retain that
+lineage with the checkpoint and parent identifiers, super-step, source, timestamp,
+lifecycle state, and pending nodes needed for read-only debugging. Models forbid
+unexpected fields where the schema is controlled and validate counts, durations,
+timestamps, identifiers, and confidence ranges.
 
 ### Evaluation
 
@@ -211,15 +219,16 @@ The implemented persistence foundation contains:
   lifecycle, and next-operation validation; and
 - a read-only, newest-first query contract for stable checkpoint summaries; and
 - invocation-scoped test-execution approval that is not persisted as reusable
-  authority.
+  authority; and
+- exact-checkpoint forks that create separate run-scoped threads and retain
+  immutable source lineage without changing the original history.
 
 The remaining persistence work should add:
 
 - workflow, classifier, prompt, and model versions when applicable;
 - evidence references;
 - approval state;
-- error or interruption information; and
-- fork metadata.
+- error or interruption information.
 
 SQLite is the implemented local checkpointer. Its connection is scoped to the graph
 operation and closed deterministically. The default database lives under
@@ -244,7 +253,13 @@ read-only Agent-Ops query that checks thread, state, and parent identities befor
 returning immutable summaries. Querying does not alter or delete the original
 checkpoints.
 
-Time-travel execution must create a new branch without deleting the original run.
+Time-travel execution selects an exact historical checkpoint, validates the same
+identity, repository, state, lifecycle, and replay-safety boundaries used by resume,
+then writes a copy into a new run-scoped thread. A stage-to-node invariant ensures
+the selected lifecycle stage matches its pending operation before LangGraph
+continues. The new run records its source run and checkpoint IDs; the source thread
+is not updated or deleted. Arbitrary state edits are not part of this CLI contract.
+
 Returning to a checkpoint does not reverse real-world side effects. Any replayable
 node that can mutate external state must be idempotent or require renewed approval.
 
@@ -256,6 +271,8 @@ The safe resume boundary is recorded in
 [`decisions/006-safe-checkpoint-resume.md`](decisions/006-safe-checkpoint-resume.md).
 The replay-approval boundary is recorded in
 [`decisions/007-renewed-test-replay-approval.md`](decisions/007-renewed-test-replay-approval.md).
+The time-travel fork boundary is recorded in
+[`decisions/008-safe-checkpoint-forks.md`](decisions/008-safe-checkpoint-forks.md).
 
 ## Planned Streaming and Observability
 
