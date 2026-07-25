@@ -12,7 +12,7 @@ from agent_ops.models import (
 )
 from agent_ops.models import TestFramework as Framework
 from agent_ops.models import TestFrameworkProfile as FrameworkProfile
-from agent_ops.workflow import open_sqlite_diagnostic_graph
+from agent_ops.workflow import open_sqlite_diagnostic_graph, query_checkpoint_history
 
 RUN_ID = UUID("8ba9fe08-23c7-4eb0-8290-610dd0075e20")
 
@@ -80,9 +80,14 @@ def test_sqlite_checkpoints_survive_graph_reopen(
     ) as reopened_graph:
         persisted_state = reopened_graph.get_state(config)
         reopened_history = list(reopened_graph.get_state_history(config))
+        queried_history = query_checkpoint_history(reopened_graph, RUN_ID)
 
     assert persisted_state.values["run"].status is DiagnosticRunStatus.COMPLETED
     assert persisted_state.values["run_id"] == RUN_ID
     assert persisted_state.next == ()
     assert len(reopened_history) == len(initial_history)
+    assert queried_history.checkpoint_count == len(initial_history)
+    assert queried_history.checkpoints[0].run_status is DiagnosticRunStatus.COMPLETED
+    assert queried_history.checkpoints[0].next_nodes == ()
+    assert queried_history.checkpoints[-1].step == -1
     assert "unregistered type" not in caplog.text

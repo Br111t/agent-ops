@@ -93,8 +93,10 @@ explicit immutable lifecycle model after successful stages, and completes that
 lifecycle before exposing a report. The CLI compiles the graph with a synchronous
 SQLite saver and uses the run UUID as the LangGraph thread ID. LangGraph persists a
 state snapshot at each super-step. Safe resume is implemented for incomplete runs
-whose pending operations are non-side-effecting. Time travel, streaming, and human
-interrupts remain planned orchestration features.
+whose pending operations are non-side-effecting. A read-only history query converts
+the retained snapshots into stable Agent-Ops records without exposing mutable graph
+state. Time travel, streaming, and human interrupts remain planned orchestration
+features.
 
 ### Repository intelligence
 
@@ -145,7 +147,9 @@ testable.
 `agent_ops.models` contains immutable Pydantic models for diagnostic run identity,
 lifecycle and provenance, repository profiles, framework detection, execution
 evidence, parsed summaries, normalized evidence, failure classifications, and the
-public diagnostic report. Models forbid unexpected fields where the schema is
+public diagnostic report. Checkpoint-history models retain the checkpoint and parent
+identifiers, super-step, source, timestamp, lifecycle state, and pending nodes needed
+for read-only debugging. Models forbid unexpected fields where the schema is
 controlled and validate counts, durations, timestamps, identifiers, and confidence
 ranges.
 
@@ -199,7 +203,8 @@ The implemented persistence foundation contains:
 - a local SQLite checkpointer whose thread ID equals the diagnostic run UUID; and
 - retained state history across process and connection lifetimes; and
 - safe continuation of incomplete runs after checkpoint identity, provenance,
-  lifecycle, and next-operation validation.
+  lifecycle, and next-operation validation; and
+- a read-only, newest-first query contract for stable checkpoint summaries.
 
 The remaining persistence work should add:
 
@@ -207,7 +212,8 @@ The remaining persistence work should add:
 - evidence references;
 - approval state;
 - error or interruption information; and
-- user-facing checkpoint history and fork metadata.
+- a user-facing checkpoint-history command; and
+- fork metadata.
 
 SQLite is the implemented local checkpointer. Its connection is scoped to the graph
 operation and closed deterministically. The default database lives under
@@ -225,8 +231,9 @@ The new-run CLI rejects an existing checkpoint thread. Explicit `--resume` requi
 the original run ID and repository, rejects completed or changed runs, and continues
 only from an allowlisted non-side-effecting pending node. A checkpoint whose next
 node is test execution is rejected until execution replay protection is implemented.
-The saved history remains available to LangGraph state APIs and is not deleted by
-these guards.
+The saved history remains available through a read-only Agent-Ops query that checks
+thread, state, and parent identities before returning immutable summaries. Querying
+does not alter or delete the original checkpoints.
 
 Time-travel execution must create a new branch without deleting the original run.
 Returning to a checkpoint does not reverse real-world side effects. Any replayable

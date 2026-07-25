@@ -31,6 +31,7 @@ The initial release focuses on:
 - Agent-Ops and target-repository version provenance
 - Durable local SQLite checkpoints and retained graph history
 - Safe resume from incomplete, non-side-effecting checkpoints
+- Read-only checkpoint-history query contracts
 
 Failure classification is deterministic and local-first. Explicit execution
 signals first produce broad outcomes, then high-confidence markers refine
@@ -123,7 +124,9 @@ that would rerun test execution. `--run-tests` cannot be combined with `--resume
 the original execution intent is retained in checkpoint state.
 
 The new-run path continues to reject existing run IDs. Complete side-effect replay
-protection and time-travel forks are not implemented yet.
+protection and time-travel forks are not implemented yet. An internal read-only query
+interface converts retained LangGraph state into stable, immutable checkpoint
+summaries ordered newest first. A user-facing history command is planned next.
 
 ## Deterministic Evaluation
 

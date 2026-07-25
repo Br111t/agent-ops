@@ -1,5 +1,10 @@
 """Public Agent-Ops data models."""
 
+from agent_ops.models.checkpoint_history import (
+    DiagnosticCheckpointHistory,
+    DiagnosticCheckpointRecord,
+    DiagnosticCheckpointSource,
+)
 from agent_ops.models.diagnostic_report import (
     DiagnosticExecutionReport,
     DiagnosticReport,
@@ -53,6 +58,9 @@ __all__ = [
     "CommandSafetyEvaluationCase",
     "CommandSafetyEvaluationDataset",
     "CommandSafetyEvaluationReport",
+    "DiagnosticCheckpointHistory",
+    "DiagnosticCheckpointRecord",
+    "DiagnosticCheckpointSource",
     "DiagnosticExecutionReport",
     "DiagnosticReport",
     "DiagnosticRun",
