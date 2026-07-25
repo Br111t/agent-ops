@@ -104,12 +104,14 @@ Implemented foundation:
 - immutable checkpoint-history models and a read-only, newest-first workflow query
   that validates persisted thread, state, and parent identities; and
 - a read-only checkpoint-history CLI with stable JSON output and an optional
-  positive result limit.
+  positive result limit; and
+- invocation-scoped test-execution approval enforced at both resume validation and
+  the side-effecting node, including transitive paths through predecessor nodes.
 
-Time-travel forks and complete replay protection remain to be implemented. The
-new-run CLI rejects thread IDs with existing checkpoint history. Resume rejects
-checkpoints whose next operation is test execution until that side-effecting node
-has explicit replay protection.
+Time-travel forks remain to be implemented. The new-run CLI rejects thread IDs with
+existing checkpoint history. Resume requires renewed `--approve-test-replay`
+authorization whenever its pending path may reach test execution; persisted
+execution intent alone cannot authorize a later invocation.
 
 ## Phase 3: Human-Reviewed Recommendations and Corrections
 

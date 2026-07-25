@@ -44,9 +44,10 @@ include:
 * Safe resume from incomplete, non-side-effecting checkpoints
 * Read-only checkpoint-history query models and workflow interface
 * Structured, read-only checkpoint-history CLI output
+* Invocation-scoped approval for new and replayed test execution
 
-The remaining Phase 2 work is time-travel forks and complete replay protection. Do
-not assume that these planned features already exist.
+The remaining Phase 2 work is time-travel forks. Do not assume that this planned
+feature already exists.
 
 Planned later capabilities may include:
 
@@ -155,7 +156,10 @@ super-step to SQLite. The default database is outside the target repository unde
 `$AGENT_OPS_HOME` or `~/.agent-ops`. A checkpoint path inside the inspected
 repository must be rejected. The new-run command rejects existing thread IDs.
 Explicit resume requires the original run ID and repository, and it must reject any
-checkpoint that would replay test execution until complete replay protection exists.
+checkpoint that may reach test execution unless the current invocation supplies
+renewed `--approve-test-replay` authorization. The execution node must also enforce
+the invocation-scoped runtime permission so CLI validation cannot be the only safety
+boundary.
 
 The CLI entry point is:
 

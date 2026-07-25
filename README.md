@@ -32,6 +32,7 @@ The initial release focuses on:
 - Durable local SQLite checkpoints and retained graph history
 - Safe resume from incomplete, non-side-effecting checkpoints
 - Read-only checkpoint-history query contracts
+- Invocation-scoped approval for new and replayed test execution
 
 Failure classification is deterministic and local-first. Explicit execution
 signals first produce broad outcomes, then high-confidence markers refine
@@ -119,12 +120,25 @@ python -m agent_ops /path/to/repository \
 
 Resume validates the run identity, repository path, content snapshot, lifecycle
 status, and pending graph operation before continuing without new graph input. It
-rejects completed runs, changed repositories, unknown operations, and checkpoints
-that would rerun test execution. `--run-tests` cannot be combined with `--resume`;
-the original execution intent is retained in checkpoint state.
+rejects completed runs, changed repositories, and unknown operations. `--run-tests`
+cannot be combined with `--resume`; the original execution intent is retained in
+checkpoint state but does not become durable approval.
 
-The new-run path continues to reject existing run IDs. Complete side-effect replay
-protection and time-travel forks are not implemented yet.
+If the resumed path may reach test execution, renew approval for that invocation:
+
+```bash
+python -m agent_ops /path/to/repository \
+  --resume \
+  --approve-test-replay \
+  --run-id <uuid> \
+  --checkpoint-db /path/outside/repository/checkpoints.sqlite3
+```
+
+The approval is held only in immutable runtime context and expires when the
+invocation finishes. The `execute_tests` node also checks it directly. A checkpoint
+after test execution can resume deterministic parsing and analysis without this
+flag. The new-run path continues to reject existing run IDs. Time-travel forks are
+not implemented yet.
 
 Query the retained checkpoint history for an existing run without resuming or
 executing the workflow:

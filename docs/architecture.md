@@ -209,7 +209,9 @@ The implemented persistence foundation contains:
 - retained state history across process and connection lifetimes; and
 - safe continuation of incomplete runs after checkpoint identity, provenance,
   lifecycle, and next-operation validation; and
-- a read-only, newest-first query contract for stable checkpoint summaries.
+- a read-only, newest-first query contract for stable checkpoint summaries; and
+- invocation-scoped test-execution approval that is not persisted as reusable
+  authority.
 
 The remaining persistence work should add:
 
@@ -233,11 +235,14 @@ models the diagnostic graph is designed to persist.
 
 The new-run CLI rejects an existing checkpoint thread. Explicit `--resume` requires
 the original run ID and repository, rejects completed or changed runs, and continues
-only from an allowlisted non-side-effecting pending node. A checkpoint whose next
-node is test execution is rejected until execution replay protection is implemented.
-The saved history remains available through a read-only Agent-Ops query that checks
-thread, state, and parent identities before returning immutable summaries. Querying
-does not alter or delete the original checkpoints.
+only from a supported pending node with the state required by that operation.
+Resume validation checks the complete pending path, not only the immediate node. If
+that path may reach test execution, `--approve-test-replay` must renew approval for
+the current invocation. The same invocation-scoped runtime permission is enforced
+inside the test-execution node. The saved history remains available through a
+read-only Agent-Ops query that checks thread, state, and parent identities before
+returning immutable summaries. Querying does not alter or delete the original
+checkpoints.
 
 Time-travel execution must create a new branch without deleting the original run.
 Returning to a checkpoint does not reverse real-world side effects. Any replayable
@@ -249,6 +254,8 @@ The local checkpoint decision is recorded in
 [`decisions/005-local-sqlite-checkpoints.md`](decisions/005-local-sqlite-checkpoints.md).
 The safe resume boundary is recorded in
 [`decisions/006-safe-checkpoint-resume.md`](decisions/006-safe-checkpoint-resume.md).
+The replay-approval boundary is recorded in
+[`decisions/007-renewed-test-replay-approval.md`](decisions/007-renewed-test-replay-approval.md).
 
 ## Planned Streaming and Observability
 

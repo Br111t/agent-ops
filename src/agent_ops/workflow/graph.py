@@ -17,6 +17,7 @@ from agent_ops.workflow.nodes import (
     normalize_evidence_node,
     parse_results_node,
 )
+from agent_ops.workflow.runtime import AgentOpsRuntimeContext
 from agent_ops.workflow.state import AgentOpsState
 
 
@@ -39,7 +40,10 @@ def build_diagnostic_graph(
 ) -> CompiledStateGraph:
     """Build the Agent-Ops graph with an optional persistence backend."""
 
-    builder = StateGraph(AgentOpsState)
+    builder = StateGraph(
+        AgentOpsState,
+        context_schema=AgentOpsRuntimeContext,
+    )
 
     builder.add_node(
         "initialize_run",
