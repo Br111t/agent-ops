@@ -27,6 +27,7 @@ from agent_ops.models import (
     TestResultSummary as ResultSummary,
 )
 from agent_ops.workflow import build_diagnostic_graph
+from agent_ops.workflow.runtime import AgentOpsRuntimeContext
 
 
 def test_graph_stops_before_execution_when_tests_not_requested() -> None:
@@ -168,7 +169,8 @@ def test_graph_executes_and_parses_when_tests_requested() -> None:
                 "repository_path": "/tmp/example",
                 "run_tests": True,
                 "run_id": requested_run_id,
-            }
+            },
+            context=AgentOpsRuntimeContext(test_execution_approved=True),
         )
 
     assert result["repository_profile"] == repository_profile

@@ -32,7 +32,11 @@ from agent_ops.models import (
 from agent_ops.models import (
     TestResultSummary as ResultSummary,
 )
-from agent_ops.workflow import CheckpointHistoryError, ResumeCheckpointError
+from agent_ops.workflow import (
+    AgentOpsRuntimeContext,
+    CheckpointHistoryError,
+    ResumeCheckpointError,
+)
 from agent_ops.workflow.state import AgentOpsState
 
 RUN_ID = UUID("8ba9fe08-23c7-4eb0-8290-610dd0075e20")
@@ -143,6 +147,7 @@ def test_cli_does_not_run_tests_by_default(
             "run_id": RUN_ID,
         },
         _graph_config(),
+        context=_runtime_context(test_execution_approved=False),
     )
     open_graph.assert_called_once_with(None, repository_path=str(tmp_path))
 
@@ -205,6 +210,7 @@ def test_cli_runs_tests_when_explicitly_requested(
             "run_id": RUN_ID,
         },
         _graph_config(),
+        context=_runtime_context(test_execution_approved=True),
     )
     open_graph.assert_called_once_with(None, repository_path=str(tmp_path))
 
@@ -391,6 +397,7 @@ def test_cli_passes_explicit_run_id_to_graph(
             "run_id": RUN_ID,
         },
         _graph_config(),
+        context=_runtime_context(test_execution_approved=False),
     )
     open_graph.assert_called_once_with(None, repository_path=str(tmp_path))
     assert json.loads(capsys.readouterr().out)["run"]["run_id"] == str(RUN_ID)
@@ -626,8 +633,13 @@ def test_cli_resumes_existing_safe_checkpoint(
         ("inspect_repository",),
         repository_path=tmp_path,
         run_id=RUN_ID,
+        test_execution_approved=False,
     )
-    graph.invoke.assert_called_once_with(None, _graph_config())
+    graph.invoke.assert_called_once_with(
+        None,
+        _graph_config(),
+        context=_runtime_context(test_execution_approved=False),
+    )
     open_graph.assert_called_once_with(None, repository_path=str(tmp_path))
     assert json.loads(capsys.readouterr().out)["run"]["status"] == "completed"
 
@@ -654,6 +666,71 @@ def test_cli_resume_rejects_run_tests_flag(
 
     assert error.value.code == 2
     assert "--run-tests cannot be combined with --resume" in capsys.readouterr().err
+
+
+def test_cli_test_replay_approval_requires_resume(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Replay approval must not become another new-run execution flag."""
+    with pytest.raises(SystemExit) as error:
+        main([str(tmp_path), "--approve-test-replay"])
+
+    assert error.value.code == 2
+    assert "--approve-test-replay requires --resume" in capsys.readouterr().err
+
+
+def test_cli_passes_renewed_test_replay_approval(
+    tmp_path: Path,
+    repository_profile: RepositoryProfile,
+    framework_profile: FrameworkProfile,
+    completed_run: DiagnosticRun,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Approved replay should be scoped to validation and this invocation."""
+    persisted_state: AgentOpsState = {
+        "repository_path": str(tmp_path),
+        "run_tests": True,
+        "run_id": RUN_ID,
+    }
+    resumed_state: AgentOpsState = {
+        **persisted_state,
+        "repository_profile": repository_profile,
+        "framework_profile": framework_profile,
+        "run": completed_run,
+    }
+    graph = Mock()
+    _install_graph(monkeypatch, graph)
+    graph.get_state.return_value.values = persisted_state
+    graph.get_state.return_value.next = ("execute_tests",)
+    graph.invoke.return_value = resumed_state
+    validate_resume = Mock()
+    monkeypatch.setattr("agent_ops.cli.validate_resume_checkpoint", validate_resume)
+
+    main(
+        [
+            str(tmp_path),
+            "--resume",
+            "--approve-test-replay",
+            "--run-id",
+            str(RUN_ID),
+        ]
+    )
+
+    validate_resume.assert_called_once_with(
+        persisted_state,
+        ("execute_tests",),
+        repository_path=tmp_path,
+        run_id=RUN_ID,
+        test_execution_approved=True,
+    )
+    graph.invoke.assert_called_once_with(
+        None,
+        _graph_config(),
+        context=_runtime_context(test_execution_approved=True),
+    )
+    assert json.loads(capsys.readouterr().out)["run"]["status"] == "completed"
 
 
 def test_cli_reports_unsafe_resume_checkpoint(
@@ -702,3 +779,13 @@ def _graph_config() -> dict[str, dict[str, str]]:
             "thread_id": str(RUN_ID),
         }
     }
+
+
+def _runtime_context(
+    *,
+    test_execution_approved: bool,
+) -> AgentOpsRuntimeContext:
+    """Return the expected invocation-scoped replay permission."""
+    return AgentOpsRuntimeContext(
+        test_execution_approved=test_execution_approved,
+    )

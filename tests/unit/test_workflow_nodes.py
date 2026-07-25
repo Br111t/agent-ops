@@ -2,8 +2,10 @@
 
 from datetime import UTC, datetime
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 from uuid import UUID
+
+import pytest
 
 from agent_ops.models import (
     DiagnosticRun,
@@ -38,6 +40,11 @@ from agent_ops.workflow.nodes import (
     normalize_evidence_node,
     parse_results_node,
 )
+from agent_ops.workflow.runtime import AgentOpsRuntimeContext
+from agent_ops.workflow.runtime import (
+    TestExecutionApprovalError as ExecutionApprovalError,
+)
+from agent_ops.workflow.state import AgentOpsState
 
 RUN_ID = UUID("8ba9fe08-23c7-4eb0-8290-610dd0075e20")
 STARTED_AT = datetime(2000, 1, 1, tzinfo=UTC)
@@ -156,7 +163,8 @@ def test_execute_tests_node_returns_execution_result() -> None:
                 "run_tests": True,
                 "framework_profile": framework_profile,
                 "run": _run_at(DiagnosticRunStage.FRAMEWORK_DETECTION),
-            }
+            },
+            _runtime(test_execution_approved=True),
         )
 
     assert result["execution_result"] == expected
@@ -165,6 +173,34 @@ def test_execute_tests_node_returns_execution_result() -> None:
         "/tmp/example",
         framework_profile,
     )
+
+
+def test_execute_tests_node_requires_current_invocation_approval() -> None:
+    """Persisted execution intent must not authorize a later invocation."""
+    state: AgentOpsState = {
+        "repository_path": "/tmp/example",
+        "run_tests": True,
+        "framework_profile": FrameworkProfile(
+            framework=Framework.PYTEST,
+            confidence=1.0,
+            approved_command=("python", "-m", "pytest", "-q"),
+        ),
+        "run": _run_at(DiagnosticRunStage.FRAMEWORK_DETECTION),
+    }
+
+    with (
+        patch("agent_ops.workflow.nodes.execute_approved_tests") as execute_tests,
+        pytest.raises(
+            ExecutionApprovalError,
+            match="current invocation",
+        ),
+    ):
+        execute_tests_node(
+            state,
+            _runtime(test_execution_approved=False),
+        )
+
+    execute_tests.assert_not_called()
 
 
 def test_parse_results_node_returns_summary() -> None:
@@ -336,3 +372,15 @@ def _run_at(
         run = run.transition(stage, transitioned_at=STARTED_AT)
 
     return run
+
+
+def _runtime(
+    *,
+    test_execution_approved: bool,
+) -> Mock:
+    """Return the runtime boundary needed by a node unit test."""
+    return Mock(
+        context=AgentOpsRuntimeContext(
+            test_execution_approved=test_execution_approved,
+        )
+    )

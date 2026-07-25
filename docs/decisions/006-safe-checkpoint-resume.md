@@ -36,8 +36,9 @@ timestamps, provenance, and completed node outputs remain in checkpoint state.
 Repository inspection, framework detection, parsing, normalization,
 classification, and completion are currently treated as non-side-effecting resume
 operations. Test execution is explicitly excluded. A checkpoint whose next node is
-`execute_tests` is rejected until that node has durable replay protection or renewed
-approval semantics.
+`execute_tests` requires invocation-scoped approval. A resumed path that can reach
+that node is rejected unless `--approve-test-replay` renews approval for the current
+invocation.
 
 The new-run path continues to reject any existing checkpoint thread. Completed runs
 cannot be resumed. `--run-tests` cannot be combined with `--resume` because resume
@@ -50,8 +51,7 @@ input.
 - Repository changes cannot be silently combined with previously captured evidence.
 - A resumed run preserves its original identity and lifecycle start time.
 - Test execution cannot be accidentally replayed through the resume path.
-- Some interrupted runs remain intentionally non-resumable until side-effect replay
-  protection is implemented.
+- Interrupted runs before test execution can continue only with renewed approval.
 - User-facing history queries and time-travel forks remain separate Phase 2 work.
 
 ## Alternatives Considered

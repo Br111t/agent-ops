@@ -75,7 +75,7 @@ def test_resume_accepts_safe_pending_analysis_node(resumable_state: AgentOpsStat
 
 
 def test_resume_rejects_side_effecting_test_replay(resumable_state: AgentOpsState) -> None:
-    """Resume must not rerun tests before replay protection exists."""
+    """Persisted test intent must not count as approval for this invocation."""
     with pytest.raises(ResumeCheckpointError, match="side-effecting operation"):
         validate_resume_checkpoint(
             resumable_state,
@@ -83,6 +83,46 @@ def test_resume_rejects_side_effecting_test_replay(resumable_state: AgentOpsStat
             repository_path=resumable_state["repository_path"],
             run_id=RUN_ID,
         )
+
+
+def test_resume_accepts_test_replay_with_renewed_approval(
+    resumable_state: AgentOpsState,
+) -> None:
+    """Fresh invocation approval may authorize the current side effect."""
+    validate_resume_checkpoint(
+        resumable_state,
+        ("execute_tests",),
+        repository_path=resumable_state["repository_path"],
+        run_id=RUN_ID,
+        test_execution_approved=True,
+    )
+
+
+def test_resume_protects_indirect_path_to_test_execution(
+    resumable_state: AgentOpsState,
+) -> None:
+    """A safe-looking predecessor must not bypass the downstream guard."""
+    with pytest.raises(ResumeCheckpointError, match="approve-test-replay"):
+        validate_resume_checkpoint(
+            resumable_state,
+            ("detect_framework",),
+            repository_path=resumable_state["repository_path"],
+            run_id=RUN_ID,
+        )
+
+
+def test_resume_allows_non_executing_predecessor_without_approval(
+    resumable_state: AgentOpsState,
+) -> None:
+    """Inspection-only intent cannot reach the test-execution side effect."""
+    resumable_state["run_tests"] = False
+
+    validate_resume_checkpoint(
+        resumable_state,
+        ("detect_framework",),
+        repository_path=resumable_state["repository_path"],
+        run_id=RUN_ID,
+    )
 
 
 def test_resume_rejects_changed_repository(resumable_state: AgentOpsState) -> None:

@@ -12,8 +12,10 @@ from agent_ops.models import (
     DiagnosticRunStatus,
 )
 from agent_ops.workflow import (
+    AgentOpsRuntimeContext,
     CheckpointHistoryError,
     ResumeCheckpointError,
+    TestExecutionApprovalError,
     build_checkpoint_config,
     open_sqlite_diagnostic_graph,
     query_checkpoint_history,
@@ -67,6 +69,11 @@ def build_parser() -> argparse.ArgumentParser:
         type=int,
         help="Maximum number of newest checkpoints to return with --history.",
     )
+    parser.add_argument(
+        "--approve-test-replay",
+        action="store_true",
+        help="Renew test-execution approval for this resumed invocation.",
+    )
     return parser
 
 
@@ -117,6 +124,8 @@ def main(argv: Sequence[str] | None = None) -> None:
         parser.error("--history-limit requires --history.")
     if args.history_limit is not None and args.history_limit < 1:
         parser.error("--history-limit must be at least 1.")
+    if args.approve_test_replay and not args.resume:
+        parser.error("--approve-test-replay requires --resume.")
 
     run_id = args.run_id or uuid4()
     repository_path = Path(args.repository_path).expanduser().resolve()
@@ -152,18 +161,37 @@ def main(argv: Sequence[str] | None = None) -> None:
                     checkpoint.next,
                     repository_path=repository_path,
                     run_id=run_id,
+                    test_execution_approved=args.approve_test_replay,
                 )
             except ResumeCheckpointError as error:
                 parser.error(str(error))
 
-            state = graph.invoke(None, graph_config)
+            try:
+                state = graph.invoke(
+                    None,
+                    graph_config,
+                    context=AgentOpsRuntimeContext(
+                        test_execution_approved=args.approve_test_replay,
+                    ),
+                )
+            except TestExecutionApprovalError as error:
+                parser.error(str(error))
         elif checkpoint.values:
             parser.error(
                 "Checkpoint history already exists for this run ID; "
                 "use --resume only for an incomplete run."
             )
         else:
-            state = graph.invoke(input_state, graph_config)
+            try:
+                state = graph.invoke(
+                    input_state,
+                    graph_config,
+                    context=AgentOpsRuntimeContext(
+                        test_execution_approved=args.run_tests,
+                    ),
+                )
+            except TestExecutionApprovalError as error:
+                parser.error(str(error))
 
     report = build_diagnostic_report(state)
 

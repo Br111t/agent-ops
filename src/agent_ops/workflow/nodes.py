@@ -4,6 +4,8 @@ from datetime import UTC, datetime
 from pathlib import Path
 from uuid import UUID, uuid4
 
+from langgraph.runtime import Runtime
+
 from agent_ops.analysis import (
     classify_failure,
     normalize_execution_evidence,
@@ -22,6 +24,10 @@ from agent_ops.models import (
 from agent_ops.repository import detect_test_framework, scan_repository
 from agent_ops.tools import execute_approved_tests
 from agent_ops.version import get_agent_ops_version
+from agent_ops.workflow.runtime import (
+    AgentOpsRuntimeContext,
+    require_test_execution_approval,
+)
 from agent_ops.workflow.state import AgentOpsState
 
 
@@ -93,9 +99,11 @@ def detect_framework_node(
 
 def execute_tests_node(
     state: AgentOpsState,
+    runtime: Runtime[AgentOpsRuntimeContext],
 ) -> dict[str, TestExecutionResult | DiagnosticRun]:
     """Execute the detected and approved test command."""
 
+    require_test_execution_approval(runtime)
     execution_result = execute_approved_tests(
         state["repository_path"],
         state["framework_profile"],

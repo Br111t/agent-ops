@@ -9,12 +9,17 @@ from pathlib import Path
 from uuid import UUID
 
 from agent_ops.models import DiagnosticRunStage, DiagnosticRunStatus
-from agent_ops.workflow import build_checkpoint_config, open_sqlite_diagnostic_graph
+from agent_ops.workflow import (
+    AgentOpsRuntimeContext,
+    build_checkpoint_config,
+    open_sqlite_diagnostic_graph,
+)
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DEMO_REPOSITORY = PROJECT_ROOT / "examples" / "diagnostic-demo"
 RUN_ID = UUID("5fbc62bc-05c1-4cec-920a-f9f29c332bc3")
 RESUME_RUN_ID = UUID("1ccdcb0b-f47d-4522-b1a7-d26505b4d04e")
+REPLAY_RUN_ID = UUID("37986198-bcde-4313-b3bd-3252f768c43c")
 
 
 def _run_agent_ops(
@@ -23,6 +28,7 @@ def _run_agent_ops(
     run_id: UUID = RUN_ID,
     resume: bool = False,
     history: bool = False,
+    approve_test_replay: bool = False,
 ) -> subprocess.CompletedProcess[str]:
     environment = os.environ.copy()
     environment["PYTHONIOENCODING"] = "cp1252"
@@ -49,6 +55,8 @@ def _run_agent_ops(
         command.append("--history")
     else:
         command.append("--resume" if resume else "--run-tests")
+    if approve_test_replay:
+        command.append("--approve-test-replay")
 
     return subprocess.run(
         command,
@@ -135,6 +143,7 @@ def test_real_cli_resumes_after_test_execution_without_replay(tmp_path: Path) ->
                 "run_id": RESUME_RUN_ID,
             },
             config,
+            context=AgentOpsRuntimeContext(test_execution_approved=True),
             stream_mode="values",
         )
         for state in stream:
@@ -195,6 +204,75 @@ def test_real_cli_resumes_after_test_execution_without_replay(tmp_path: Path) ->
 
     assert completed_resume.returncode == 2
     assert "diagnostic run is already completed" in completed_resume.stderr
+
+
+def test_real_cli_requires_renewed_approval_before_test_replay(tmp_path: Path) -> None:
+    """A resumed invocation must not inherit stale test-execution approval."""
+    database_path = tmp_path / "state" / "checkpoints.sqlite3"
+    config = build_checkpoint_config(REPLAY_RUN_ID)
+
+    with open_sqlite_diagnostic_graph(
+        database_path,
+        repository_path=DEMO_REPOSITORY,
+    ) as graph:
+        stream = graph.stream(
+            {
+                "repository_path": str(DEMO_REPOSITORY),
+                "run_tests": True,
+                "run_id": REPLAY_RUN_ID,
+            },
+            config,
+            context=AgentOpsRuntimeContext(test_execution_approved=True),
+            stream_mode="values",
+        )
+        for state in stream:
+            run = state.get("run")
+            if run is not None and run.stage is DiagnosticRunStage.FRAMEWORK_DETECTION:
+                break
+        stream.close()
+
+        interrupted_state = graph.get_state(config)
+        initial_history = list(graph.get_state_history(config))
+
+    assert interrupted_state.values["run"].status is DiagnosticRunStatus.RUNNING
+    assert interrupted_state.values["run"].stage is DiagnosticRunStage.FRAMEWORK_DETECTION
+    assert interrupted_state.next == ("execute_tests",)
+    assert "execution_result" not in interrupted_state.values
+
+    rejected_resume = _run_agent_ops(
+        database_path,
+        run_id=REPLAY_RUN_ID,
+        resume=True,
+    )
+
+    assert rejected_resume.returncode == 2
+    assert "--approve-test-replay" in rejected_resume.stderr
+
+    with open_sqlite_diagnostic_graph(
+        database_path,
+        repository_path=DEMO_REPOSITORY,
+    ) as graph:
+        assert len(list(graph.get_state_history(config))) == len(initial_history)
+
+    approved_resume = _run_agent_ops(
+        database_path,
+        run_id=REPLAY_RUN_ID,
+        resume=True,
+        approve_test_replay=True,
+    )
+
+    assert approved_resume.returncode == 0, approved_resume.stderr
+    report = json.loads(approved_resume.stdout)
+    assert report["run"]["status"] == "completed"
+    assert report["test_execution"]["summary"]["passed"] == 5
+
+    with open_sqlite_diagnostic_graph(
+        database_path,
+        repository_path=DEMO_REPOSITORY,
+    ) as graph:
+        completed_history = list(graph.get_state_history(config))
+
+    assert _count_stage(completed_history, DiagnosticRunStage.TEST_EXECUTION) == 1
 
 
 def _count_stage(history: list[object], stage: DiagnosticRunStage) -> int:
